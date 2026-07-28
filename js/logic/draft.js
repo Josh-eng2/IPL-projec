@@ -118,7 +118,7 @@ export function useSkip(kind) {
 
 // ── Player tiers ──────────────────────────────────────────────────────────────
 // Quality tier keyed to `overall` (the era-adjusted real-2K rating). This is
-// the on-court quality signal the draft steers toward when seeking stars/GOATs.
+// the on-field quality signal the draft steers toward when seeking stars/GOATs.
 const TIER_RANK = { starter: 0, star: 1, goat: 2 };
 
 /** Quality tier derived from the player's `overall` (era-adjusted 2K rating).

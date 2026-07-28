@@ -42,8 +42,11 @@ const { CHALLENGES, getDailyChallenge, getLockedPlayer } =
 const { SEASON_GAMES } = await import('../js/logic/simulation.js');
 
 // First day the Daily Challenge existed (first commit of js/logic/challenge.js).
-// Dates before this are not real history and are never generated.
-const LAUNCH = new Date().toISOString().slice(0, 10);
+// Dates before this are not real history and are never generated. Must stay a
+// fixed constant, not "now" — recomputing it on every run would silently
+// reset the launch date to today and erase all accumulated challenge history
+// from the generated "when has this run" lists.
+const LAUNCH = '2026-07-14';
 const TODAY = new Date().toISOString().slice(0, 10);
 
 // ── helpers ──────────────────────────────────────────────────────────────────

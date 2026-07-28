@@ -96,7 +96,7 @@ function fansTierFromAvg(avg) {
   };
 }
 
-/** Sum roster fans for UI. Boos Only daily caps the meter at maxPopTotal (300). */
+/** Sum roster fans for UI. Domestic Talent daily caps the meter at maxPopTotal (300). */
 function calcTeamFans(players) {
   const list = players.filter(Boolean);
   const sum  = list.reduce((s, p) => s + (p.popularity ?? 50), 0);
@@ -120,8 +120,8 @@ export function archetypeBadge(arch) {
   const c = ARCHETYPE_STYLE[arch] || { bg: '#27272a', text: '#a1a1aa' };
   if (isDark()) {
     const bright = {
-      'Playmaker': '#93c5fd', 'Sharpshooter': '#fcd34d', 'Lockdown Defender': '#c4b5fd',
-      'Slasher': '#c4b5fd', 'Paint Beast': '#4ade80', 'Two-Way Star': '#fb923c',
+      'Anchor': '#93c5fd', 'Power Hitter': '#fcd34d', 'Strike Bowler': '#c4b5fd',
+      'Finisher': '#c4b5fd', 'Death Bowler': '#4ade80', 'Complete Cricketer': '#fb923c',
     };
     const text = bright[arch] || c.text;
     return `<span class="inline-block text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full mt-0.5" style="background:${text}20;color:${text}">${arch}</span>`;
@@ -1434,7 +1434,7 @@ function renderSimulateCard() {
   const subtitle = isDual && isP1
     ? 'All 5 spots locked in. Hand the device to Player 2.'
     : isDual
-    ? 'Both rosters set. Time to settle it on the court.'
+    ? 'Both rosters set. Time to settle it on the field.'
     : isDynasty
     ? 'Skip the regular season — go straight at a legendary dynasty.'
     : S.mode === 'defense'
