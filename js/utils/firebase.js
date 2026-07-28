@@ -14,10 +14,10 @@
  *            allow read: if true;
  *            allow create: if request.resource.data.wins is number
  *                          && request.resource.data.wins >= 0
- *                          && request.resource.data.wins <= 82
+ *                          && request.resource.data.wins <= 14
  *                          && request.resource.data.losses is number
  *                          && request.resource.data.losses >= 0
- *                          && request.resource.data.losses <= 82
+ *                          && request.resource.data.losses <= 14
  *                          && request.resource.data.teamName is string
  *                          && request.resource.data.teamName.size() <= 30
  *                          && request.resource.data.era is string
@@ -66,10 +66,10 @@
  *                      && request.resource.data.date.size() == 10
  *                      && request.resource.data.wins is number
  *                      && request.resource.data.wins >= 0
- *                      && request.resource.data.wins <= 82
+ *                      && request.resource.data.wins <= 14
  *                      && request.resource.data.losses is number
  *                      && request.resource.data.losses >= 0
- *                      && request.resource.data.losses <= 82
+ *                      && request.resource.data.losses <= 14
  *                      && request.resource.data.teamName is string
  *                      && request.resource.data.teamName.size() <= 30
  *                      && request.resource.data.avgRating is number
@@ -125,6 +125,10 @@
 let initializeApp, getApps, getFirestore, collection, addDoc, getDocs,
     query, orderBy, limit, where, serverTimestamp, Timestamp,
     getAnalytics, logEvent;
+
+// Season length — mirrors simulation.js's SEASON_GAMES (not imported to keep
+// this optional module free of game-logic dependencies).
+const MAX_WINS = 14;
 
 let _sdkPromise = null;
 function loadSdk() {
@@ -238,7 +242,7 @@ export function logAnalyticsEvent(eventName, params = {}) {
 export async function submitGlobalScore(entry) {
   if (!isFirebaseConfigured()) throw new Error('Firebase not configured — see js/utils/firebase.js setup instructions');
   const wins = entry.wins ?? 0;
-  if (wins < 0 || wins > 82) throw new Error('Invalid wins value');
+  if (wins < 0 || wins > MAX_WINS) throw new Error('Invalid wins value');
   const db  = await getDb();
   if (!db) throw new Error('Firebase unavailable — leaderboard could not load');
   const col = collection(db, 'leaderboard');
@@ -259,7 +263,7 @@ export async function submitGlobalScore(entry) {
     // ── FUTURE: per-run stat leaders on the GLOBAL board ──────────────────
     // Per-player season stats already persist to the LOCAL leaderboard
     // (storage.js → packLeaders). To surface leaders globally too, add:
-    //     leaders: entry.leaders ?? null,   // { pts, reb, ast, stl, blk }
+    //     leaders: entry.leaders ?? null,   // { batting, striking, bowling, economy, fielding }
     // BUT the Firestore security rule above validates the document shape and
     // will REJECT the whole write if it uses hasOnly()/strict field checks.
     // So publish the rule change FIRST (allow a `leaders` map field in the
@@ -322,7 +326,7 @@ export async function fetchLeaderboard(filter = 'alltime') {
 export async function submitDailyScore(entry) {
   if (!isFirebaseConfigured()) throw new Error('Firebase not configured — see js/utils/firebase.js setup instructions');
   const wins = entry.wins ?? 0;
-  if (wins < 0 || wins > 82) throw new Error('Invalid wins value');
+  if (wins < 0 || wins > MAX_WINS) throw new Error('Invalid wins value');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(entry.date || '')) throw new Error('Invalid date');
   const db  = await getDb();
   if (!db) throw new Error('Firebase unavailable — leaderboard could not load');
@@ -373,7 +377,7 @@ export async function fetchDailyLeaderboard(date) {
   // the challenge system (no challengeId) keep the plain wins*10 path.
   entries = entries.filter(e => {
     const wins = Number(e.wins);
-    if (!Number.isInteger(wins) || wins < 0 || wins > 82) return false;
+    if (!Number.isInteger(wins) || wins < 0 || wins > MAX_WINS) return false;
     if (e.challengeId) {
       const expected = wins * 10 + (e.passed === true ? 200 : 0);
       if (Number(e.score) !== expected) return false;

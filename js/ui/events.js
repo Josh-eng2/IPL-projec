@@ -468,7 +468,7 @@ export function doSpin() {
 /**
  * Builds the pick board from the current availablePlayers.
  * Classic/1v1: sorted best-first by popularity.
- * HoopIQ (blind): Fisher-Yates shuffled — card order must not leak quality.
+ * Ball IQ (blind): Fisher-Yates shuffled — card order must not leak quality.
  */
 function buildDraftBoard() {
   const pool = [...S.availablePlayers];
@@ -744,7 +744,7 @@ function doSimulate() {
   if (S.phase !== 'drafting' || isDualDraft()) return;
   const starters = POSITIONS.map(p => S.roster[p]).filter(Boolean);
 
-  // Dynasty Duel — skip the 82-game ticker; go straight to a best-of-7.
+  // Dynasty Duel — skip the 14-match ticker; go straight to a best-of-7.
   if (S.mode === 'dynasty-duel') {
     const opponent = S.dynastyOpponent || pickDynastyForPlay();
     S.result = simulateSeason(starters);
@@ -825,9 +825,10 @@ function doSimulate() {
   rg.rival  = true;
   // Cosmetic draw — the daily seed governs draft OFFERS only (state.js), so
   // season dressing must not consume from the deterministic stream.
-  rg.opp    = `'` + pickCosmetic(CPU_TEAMS).name;                // "'96 Bulls"
+  rg.opp    = `'` + pickCosmetic(CPU_TEAMS).name;                // "'19 MI"
   rg.margin = 2 + Math.floor(Math.random() * 6);                 // rivalry games are tight
-  const rBase = 95 + Math.floor(Math.random() * 28);
+  // Same 150–194 T20 total range decorateSeasonGames uses for every other game.
+  const rBase = 150 + Math.floor(Math.random() * 45);
   rg.ps   = rg.won ? rBase + Math.ceil(rg.margin / 2) : rBase - Math.floor(rg.margin / 2);
   rg.os   = rg.won ? rBase - Math.floor(rg.margin / 2) : rBase + Math.ceil(rg.margin / 2);
   rg.type = 'close';
@@ -835,7 +836,7 @@ function doSimulate() {
   // Longest streak + first-loss marker — computed on the final presented
   // order (post cold-open reorder, post rival insert). The first loss of
   // the season always gets the dramatic beat, whenever it lands — that
-  // moment is the biggest emotional swing an 82-0 chase can produce.
+  // moment is the biggest emotional swing a 14-0 chase can produce.
   let curStreak = 0, longestStreak = 0;
   for (const g of S.seasonGames) {
     curStreak = g.won ? curStreak + 1 : 0;
@@ -918,7 +919,9 @@ function doSimulate() {
   runSeasonReveal();
 }
 
-const STREAK_MILESTONES = [10, 20, 30, 40, 50, 60, 70, 80];
+// Win-streak toasts during the 14-game reveal. 14 itself is excluded — the
+// perfect-season payoff belongs to the results screen, not a mid-reveal toast.
+const STREAK_MILESTONES = [5, 8, 11];
 
 /**
  * Reveals season games on a montage cadence: consecutive blowouts flash by

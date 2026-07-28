@@ -61,7 +61,8 @@ function deriveSecondary(p) {
       // Top-Order Anchor: builds a full innings, translates to opening → OPEN
       if (p.runs > 40 || arch === 'Anchor') sec.add('OPEN');
       // Keeping Cover: strong fielding hands, can slot in behind the stumps → WK
-      if (p.field > 0.8 || arch === 'Complete Cricketer') sec.add('WK');
+      // (0.8 is the middle-order fielding ceiling in the DB, so >= not >)
+      if (p.field >= 0.8 || arch === 'Complete Cricketer') sec.add('WK');
       break;
 
     // ── Wicketkeeper-Batter ───────────────────────────────────────────────
@@ -73,15 +74,18 @@ function deriveSecondary(p) {
     // ── Pace Bowler ───────────────────────────────────────────────────────
     case 'PACE':
       // Containment Arm: elite economy reads like a spinner's control → SPIN
-      if (p.econ > 6.5 || arch === 'Strike Bowler') sec.add('SPIN');
+      // (pace econ contributions top out at 6.1 in the DB — 5.7 is elite)
+      if (p.econ > 5.7 || arch === 'Strike Bowler') sec.add('SPIN');
       // All-Round Finisher: genuine bat-and-ball threat → MID
-      if (p.runs > 20 || arch === 'Complete Cricketer') sec.add('MID');
+      // (pace batting tops out around 12 runs/inns — 10 marks a real bat)
+      if (p.runs >= 10 || arch === 'Complete Cricketer') sec.add('MID');
       break;
 
     // ── Spin Bowler ───────────────────────────────────────────────────────
     case 'SPIN':
       // Enforcer: elite strike/economy numbers translate to a new-ball role → PACE
-      if (p.wkts > 1.3 || p.econ > 6.5 || arch === 'Death Bowler') sec.add('PACE');
+      // (spin econ contributions top out at 5.9 in the DB — 5.6 is elite)
+      if (p.wkts > 1.3 || p.econ > 5.6 || arch === 'Death Bowler') sec.add('PACE');
       break;
   }
 
