@@ -252,7 +252,7 @@ function renderEraPickerSheet() {
   function eraRow(eraId, label, subtitle, action) {
     const selected = active === eraId;
     return `
-    <button data-action="${action}"
+    <button data-action="${action}" type="button" aria-pressed="${selected}"
       class="era-picker-row${selected ? ' era-picker-row--active' : ''}">
       <span class="era-picker-row__label">${label}</span>
       ${subtitle ? `<span class="era-picker-row__sub">${subtitle}</span>` : ''}
@@ -260,10 +260,14 @@ function renderEraPickerSheet() {
     </button>`;
   }
 
+  // Deliberately NOT role="listbox": the rows are real <button>s, and
+  // <button> is not a valid child of a listbox (which expects role="option").
+  // A labelled group keeps the semantics honest and the buttons natively
+  // operable by keyboard and screen readers.
   return `
-  <div class="era-picker-panel" role="listbox" aria-label="Draft era">
+  <div class="era-picker-panel" role="group" aria-label="Draft era">
     <div class="era-picker-panel__head">
-      <p class="era-picker-panel__title">Draft era</p>
+      <p class="era-picker-panel__title" id="era-picker-title">Draft era</p>
       <p class="era-picker-panel__hint">Locks on first spin</p>
     </div>
     <div class="era-picker-panel__list">
