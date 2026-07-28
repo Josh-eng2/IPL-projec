@@ -5,8 +5,8 @@
  *   render()        — phase dispatcher; sets #app innerHTML then binds events
  *   $app            — the #app DOM node (shared with events.js)
  *   archetypeBadge  — archetype pill HTML helper
- *   fmtDecadeShort  — "1990s" → "90s"
- *   fmtPlayerLine   — "Jordan (Bulls 90s)"
+ *   fmtDecadeShort  — "2016-19" → "'16-19"
+ *   fmtPlayerLine   — "Kohli (RCB '16-19)"
  *   showToast       — ephemeral bottom toast notification
  */
 
@@ -38,11 +38,13 @@ const esc = s => String(s)
   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 // ── SVG icons ─────────────────────────────────────────────────────────────────
+// Cricket ball: two dashed stitch arcs flanking the seam, matching the
+// favicon/logo-badge crest artwork (which uses the same dashed-arc motif).
 function iconBall(cls = '') {
   return `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="10"/>
-    <path d="M6 5.5a12 12 0 0 1 0 13"/>
-    <path d="M18 5.5a12 12 0 0 0 0 13"/>
+    <path d="M9.6 2.3a13.6 13.6 0 0 0 0 19.4" stroke-width="1.5" stroke-dasharray="2.1 1.7"/>
+    <path d="M14.4 2.3a13.6 13.6 0 0 1 0 19.4" stroke-width="1.5" stroke-dasharray="2.1 1.7"/>
   </svg>`;
 }
 function iconCheck(cls = '') {
@@ -272,7 +274,7 @@ function renderEraPickerSheet() {
       <p class="era-picker-panel__hint">Locks on first spin</p>
     </div>
     <div class="era-picker-panel__list">
-      ${eraRow('all', 'All Eras', 'Random decade each spin', 'era-pick-all')}
+      ${eraRow('all', 'All Eras', 'Random era each spin', 'era-pick-all')}
       <div class="era-picker-panel__divider" role="separator"></div>
       ${DECADES.map(d => eraRow(d, d, ERA_DESC[d], `era-pick-${d}`)).join('')}
     </div>
@@ -681,7 +683,7 @@ function renderLegends() {
           <div class="h-2 rounded-full overflow-hidden mx-auto max-w-xs" style="background:var(--surface-track)">
             <div class="h-full rounded-full stat-bar-fill" style="width:${pct}%;background:${isDark() ? '#818cf8' : '#6366f1'}"></div>
           </div>
-          <p class="text-xs text-muted-fg mt-2">${pct}% of every legend across all seven decades${have === 0 ? ' — draft a roster to start collecting.' : have === total ? ' — you collected them all. 🏆' : ''}</p>
+          <p class="text-xs text-muted-fg mt-2">${pct}% of every legend across all ${decades.length} eras${have === 0 ? ' — draft a roster to start collecting.' : have === total ? ' — you collected them all. 🏆' : ''}</p>
         </div>
         ${decadeCards}
         <button data-action="legends-back" class="w-full py-3 rounded-xl font-bold text-sm border border-border bg-white text-foreground hover:border-primary hover:bg-card2 transition-all cursor-pointer card-shadow">
@@ -760,7 +762,7 @@ function renderModeDraftBanner() {
   if (S.mode === 'defense') {
     return `<div class="rounded-xl border px-3 py-2 text-xs font-semibold mode-banner mode-banner--defense"
       style="border-color:color-mix(in srgb, #8b5cf6 35%, var(--border));background:color-mix(in srgb, #8b5cf6 14%, var(--card));color:var(--fg)">
-      🛡️ Defense Only — stocks &amp; boards carry this sim. Scoring volume matters less.
+      🎯 Bowling Only — wickets, economy &amp; fielding carry this sim. Batting volume matters less.
     </div>`;
   }
   if (S.mode === 'fans') {
@@ -769,15 +771,16 @@ function renderModeDraftBanner() {
       ? starters.reduce((s, p) => s + (p.popularity || 50), 0) / starters.length
       : 0;
     const fansM = Math.pow(Math.max(0, Math.min(1, (avg - 35) / 65)), 1.5) * 38 + 2;
-    // Estimate wins from star power instead of hardcoding 50 — keeps the
-    // "live proj" honest while the season hasn't been simulated yet.
+    // Estimate wins from star power instead of hardcoding a midpoint — keeps
+    // the "live proj" honest while the season hasn't been simulated yet.
+    // Clamped to a plausible 3–12 of the 14-match season.
     const estWins = starters.length
-      ? Math.round(Math.min(72, Math.max(18, 25 + ((avg - 40) / 60) * 50)))
+      ? Math.round(Math.min(12, Math.max(3, 4 + ((avg - 40) / 60) * 8.5)))
       : null;
     const proj = starters.length ? fansFirstScore(avg, fansM, estWins) : null;
     return `<div class="rounded-xl border px-3 py-2 text-xs font-semibold mode-banner mode-banner--fans"
       style="border-color:color-mix(in srgb, #ec4899 35%, var(--border));background:color-mix(in srgb, #ec4899 14%, var(--card));color:var(--fg)">
-      📣 Fans First — optimize star power. Pass needs ≥70 avg popularity and ≥35 wins. Score ≈ pop×10 + fansM×5 + wins×2${proj != null ? ` · live proj ~${Math.round(proj)} (@~${estWins}W)` : ''}.
+      📣 Fans First — optimize star power. Pass needs ≥70 avg popularity and ≥6 wins. Score ≈ pop×10 + fansM×5 + wins×2${proj != null ? ` · live proj ~${Math.round(proj)} (@~${estWins}W)` : ''}.
     </div>`;
   }
   if (S.mode === 'dynasty-duel' && S.dynastyOpponent) {
@@ -1230,7 +1233,7 @@ function renderDraftCard(p, index) {
     ? (isSelected ? '✓ Selected' : 'Draft → Slot')
     : (isSelected ? '✓ Selected — Tap a Roster Slot' : 'Draft → Tap Slot');
 
-  // HoopIQ — name only, no stats or position hints
+  // Ball IQ — name only, no stats or position hints
   if (S.mode === 'blind') {
     return `
   <div class="rounded-xl border-2 flex flex-col overflow-hidden transition-all card-shadow draft-card draft-card--blind"
@@ -1437,7 +1440,7 @@ function renderSimulateCard() {
     : S.mode === 'defense'
     ? 'Win probability leans on wickets, economy, and fielding.'
     : S.mode === 'fans'
-    ? 'Star power scores the run — still need ~35 wins to look legit.'
+    ? 'Star power scores the run — still need 6+ wins to look legit.'
     : 'All 5 spots locked in. Ready to run the season.';
   return `
   <div class="rounded-2xl border-2 border-primary bg-white p-5 text-center animate-scale-in card-shadow draft-simulate-card" style="border-color:${btnColor}20">
@@ -1762,7 +1765,7 @@ function renderResults() {
   const isElite    = tier.id === 'elite';
   const isPlayoff  = tier.id === 'playoff';
 
-  // Fire confetti for 82-0 — once per results screen, not on every re-render.
+  // Fire confetti for 14-0 — once per results screen, not on every re-render.
   if (isPerfect && !S.perfectConfettiFired) {
     S.perfectConfettiFired = true;
     setTimeout(() => {
@@ -1783,7 +1786,7 @@ function renderResults() {
   const modeBadge = S.mode === 'defense'
     ? `<span class="inline-block text-[11px] font-bold px-3 py-1 rounded-full mb-2 border" style="border-color:color-mix(in srgb,#8b5cf6 35%,var(--border));background:color-mix(in srgb,#8b5cf6 14%,var(--card));color:var(--fg)">🎯 Bowling profile · ${r.teamFielding ?? 0} combined</span>`
     : S.mode === 'fans'
-    ? `<span class="inline-block text-[11px] font-bold px-3 py-1 rounded-full mb-2 border" style="border-color:color-mix(in srgb,#ec4899 35%,var(--border));background:color-mix(in srgb,#ec4899 14%,var(--card));color:var(--fg)">📣 Fans First score ${r.fansScore ?? 0}${r.fansPassed ? ' · ✓ (≥70 pop & ≥35 wins)' : ' · need ≥70 pop & ≥35 wins'}</span>`
+    ? `<span class="inline-block text-[11px] font-bold px-3 py-1 rounded-full mb-2 border" style="border-color:color-mix(in srgb,#ec4899 35%,var(--border));background:color-mix(in srgb,#ec4899 14%,var(--card));color:var(--fg)">📣 Fans First score ${r.fansScore ?? 0}${r.fansPassed ? ' · ✓ (≥70 pop & ≥6 wins)' : ' · need ≥70 pop & ≥6 wins'}</span>`
     : '';
 
   const winsColor = isPerfect || isHistoric ? (isDark() ? '#fbbf24' : '#d97706') : isElite ? (isDark() ? '#4ade80' : '#16a34a') : isPlayoff ? (isDark() ? '#60a5fa' : '#2563eb') : (isDark() ? '#f87171' : '#dc2626');
@@ -1848,10 +1851,10 @@ function renderResults() {
     </span>`;
   })();
 
-  // Scaled to 5-starter sums (an elite roster reads ~85-95%) — the theoretical
-  // ceilings across this DB's five best per category are unreachable
-  // simultaneously on one XI.
-  const maxes = { runs: 250, sr: 850, wkts: 10, econ: 30, field: 7 };
+  // Scaled to 5-starter per-match sums (an elite roster reads ~85-95%) — the
+  // theoretical ceilings across this DB's five best per category are
+  // unreachable simultaneously on one XI.
+  const maxes = { runs: 160, sr: 700, wkts: 4, econ: 14, field: 4.2 };
   const statBar = (key, lbl, val) => {
     const pct   = Math.min(100, (val / maxes[key]) * 100);
     const color = pct >= 70 ? (isDark() ? '#60a5fa' : '#2563eb') : pct >= 45 ? (isDark() ? '#fbbf24' : '#d97706') : (isDark() ? '#cbd5e1' : '#94a3b8');

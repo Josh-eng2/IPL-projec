@@ -1,5 +1,5 @@
 /* ============================================================
-   css/styles.css — Custom styles & animations for 82-0
+   css/styles.css — Custom styles & animations for 14-0
    (everything that Tailwind's utility classes can't cover)
    ============================================================ */
 
@@ -34,7 +34,7 @@
   --surface-sky:    #f8fbff;
   --surface-muted:  #f8fafc;
   --surface-track:  #eef2ff;
-  /* "Perfect / 82-0" gold accents (leaderboard rows, champ badges) */
+  /* "Perfect / 14-0" gold accents (leaderboard rows, champ badges) */
   --amber-badge-bg: #fef3c7;
   --amber-border:   #fcd34d;
   --amber-text:     #92400e;
