@@ -31,7 +31,7 @@
  *   handlers in modal HTML can call them.
  */
 
-import { S, COACHES, POSITIONS, getUtcDateString } from '../logic/state.js';
+import { S, POSITIONS, getUtcDateString } from '../logic/state.js';
 import { getLegendCatalog }                      from '../logic/draft.js';
 import { fetchLeaderboard, fetchDailyLeaderboard, fetchDailyCommunityStats } from '../utils/firebase.js';
 import { cgGetItem, cgSetItem }                    from '../utils/crazygames.js';
@@ -39,6 +39,11 @@ import { getDailyChallenge }                       from '../logic/challenge.js';
 import { weekKeyUTC }                              from '../logic/dynastyDuel.js';
 
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+// One-time cleanup — the captain (coach) feature was removed, so its
+// remembered pick has nothing to configure anymore. Written pre-removal via
+// plain localStorage (not the CrazyGames data module), so removed the same way.
+try { localStorage.removeItem('nba820_coach'); } catch (e) {}
 
 // Compact, wrapping row of the 5 stored stat leaders for a leaderboard entry.
 // Returns '' for entries saved before per-player stats existed.
@@ -254,12 +259,11 @@ export function markDynastyDuelPlayed({ weekKey, opponentName, won, score, serie
 // ── Save trophy room entry ────────────────────────────────────────────────────
 
 export function saveToTrophyRoom() {
-  const r        = S.result;
-  const coachObj = S.coach ? COACHES.find(c => c.id === S.coach) : null;
+  const r = S.result;
   const entry = {
     date:        new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-    coachName:   coachObj ? coachObj.name   : 'Unknown',
-    coachSystem: coachObj ? coachObj.system : '',
+    teamName:    (S.teamName || '').trim(),
+    era:         S.selectedEra ?? 'all',
     wins:        r.wins,
     losses:      r.losses,
     avgRating:   Math.round(r.avgRating ?? 0),
@@ -506,7 +510,6 @@ function _globalLbTeamDetailHtml(entry) {
           <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--primary);margin:0 0 4px">Team Breakdown</p>
           <h3 style="font-size:20px;font-weight:900;margin:0;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</h3>
           <p style="font-size:14px;font-weight:800;color:var(--fg);margin:6px 0 0;font-family:Fira Sans,sans-serif">${wins}–${losses}${entry.champion ? ' · 🏆 Champ' : ''}</p>
-          ${entry.coachName ? `<p style="font-size:12px;color:var(--muted-fg);margin:4px 0 0;font-family:Fira Sans,sans-serif">${esc(entry.coachName)}</p>` : ''}
         </div>
         <button onclick="window.closeGlobalLbTeamDetail()"
           style="background:var(--card2);border:1px solid var(--border);color:var(--muted-fg);border-radius:999px;width:32px;height:32px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</button>
@@ -607,7 +610,6 @@ function _globalLbRowsHtml(entries) {
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span style="font-weight:900;font-size:15px;color:${winsColor};font-family:Fira Sans,sans-serif">${wins}–${losses}</span>
-          ${e.coachName ? `<span style="font-size:11px;color:var(--muted-fg);font-family:Fira Sans,sans-serif">${esc(e.coachName)}</span>` : ''}
           ${e.era && e.era !== 'all' ? `<span style="font-size:11px;color:var(--muted);font-family:Fira Sans,sans-serif">${esc(e.era)}</span>` : ''}
         </div>
         ${e.starters ? `<p style="font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:2px 0 0;font-family:Fira Sans,sans-serif">${esc(e.starters)}</p>` : ''}
@@ -960,7 +962,6 @@ function _dailyLbRowsHtml(entries) {
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span style="font-weight:900;font-size:15px;color:${winsColor};font-family:Fira Sans,sans-serif">${wins}–${losses}</span>
-          ${e.coachName ? `<span style="font-size:11px;color:var(--muted-fg);font-family:Fira Sans,sans-serif">${esc(e.coachName)}</span>` : ''}
         </div>
         ${e.starters ? `<p style="font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:2px 0 0;font-family:Fira Sans,sans-serif">${esc(e.starters)}</p>` : ''}
       </div>

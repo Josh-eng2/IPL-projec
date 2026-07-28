@@ -12,11 +12,11 @@
 
 import {
   S, POSITIONS, ALL_POSITIONS, TOTAL_ROUNDS,
-  COACHES, ERA_DESC, TEAM_COLORS, ARCHETYPE_STYLE, DECADES, TEAMS, pickCosmetic, SNAKE_ORDER,
+  ERA_DESC, TEAM_COLORS, ARCHETYPE_STYLE, DECADES, TEAMS, pickCosmetic, SNAKE_ORDER,
   getUtcDateString,
 } from '../logic/state.js';
 import { rosterFull, availableDecades, getLegendCatalog, getSkips } from '../logic/draft.js';
-import { coachSystemProgress, SEASON_GAMES }              from '../logic/simulation.js';
+import { SEASON_GAMES }                                    from '../logic/simulation.js';
 import { getBracketDisplayState, STAGES, STAGE_LABEL }     from '../logic/playoffs.js';
 import { markReturning, getCollectedLegends, getDailyStatus } from '../utils/storage.js';
 import { cgGameplayStart, cgGameplayStop, cgGetItem }     from '../utils/crazygames.js';
@@ -32,7 +32,7 @@ export const $app = document.getElementById('app');
 
 // ── HTML escaping ─────────────────────────────────────────────────────────────
 // For user-controlled strings (team names) interpolated into innerHTML or
-// attribute values. Player/coach names from the DB are trusted app data.
+// attribute values. Player names from the DB are trusted app data.
 const esc = s => String(s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -281,7 +281,6 @@ function renderEraPickerSheet() {
 
 function renderHeader(showRestart = false) {
   const eraLabel         = getEraLabel();
-  const coachObj         = S.coach ? COACHES.find(c => c.id === S.coach) : null;
   const eraInteractive   = S.phase === 'drafting' && !S.eraLocked;
   const eraPickerOpen    = S.eraPickerOpen && !S.eraLocked;
   const eraPill = eraInteractive
@@ -322,7 +321,6 @@ function renderHeader(showRestart = false) {
           <span>14-0</span>
         </h1>
         <div class="app-header__actions">
-          ${coachObj ? `<span class="header-pill header-pill--muted">${coachObj.system}</span>` : ''}
           ${eraPill}
           <button data-action="open-leaderboard" type="button" class="header-pill header-pill--icon" title="Personal Best" aria-label="Personal Best">🏅</button>
           <button data-action="open-global-leaderboard" type="button" class="header-pill header-pill--icon" title="Global Leaderboard" aria-label="Global Leaderboard">🌍</button>
@@ -695,67 +693,16 @@ function renderLegends() {
   </div>`;
 }
 
-// ── Coach selection ───────────────────────────────────────────────────────────
-// Coach selection lives on the drafting screen as a chip + picker sheet;
-// era selection lives in the header and locks on the first spin.
-// One line: coach, system, live system meter. Tap to swap until the first
-// spin locks it. The meter converts the coach from a blind pre-commit bet
-// into a drafting objective you can see filling.
-function renderCoachChip() {
-  const coach = COACHES.find(c => c.id === S.coach);
-  if (!coach) return '';
-  const starters = POSITIONS.map(p => S.roster[p]).filter(Boolean);
-  const sys      = coachSystemProgress(coach.id, starters);
-  const filled   = Math.round(sys.progress * 4);
-  const meter    = Array.from({ length: 4 }, (_, i) =>
-    `<span style="color:${i < filled ? coach.accent : 'var(--border)'}">★</span>`).join('');
-  const locked   = !!S.coachLocked;
-
-  const chipInner = `
-    <span class="w-2 h-2 rounded-full flex-shrink-0" style="background:${coach.accent}"></span>
-    <span class="text-xs font-black text-foreground flex-shrink-0">${coach.name}</span>
-    <span class="text-[10px] font-bold uppercase tracking-wider truncate" style="color:${coach.accent}">${coach.system}</span>
-    <span class="ml-auto flex items-center gap-1.5 flex-shrink-0">
-      <span class="text-sm leading-none tracking-tight">${meter}</span>
-      <span class="text-[10px] text-muted-fg font-semibold">${sys.metric}</span>
-      <span class="text-xs text-muted-fg">${locked ? '🔒' : '▾'}</span>
-    </span>`;
-
-  const chip = locked
-    ? `<div class="w-full rounded-xl border border-border bg-card px-3 py-2 flex items-center gap-2 card-shadow" title="Captain locked for this run">${chipInner}</div>`
-    : `<button data-action="coach-picker-toggle"
-        class="w-full rounded-xl border bg-card px-3 py-2 flex items-center gap-2 card-shadow cursor-pointer transition-all hover:border-primary text-left"
-        style="border-color:${S.coachPickerOpen ? coach.accent : 'var(--border)'}">${chipInner}</button>`;
-
-  const picker = !locked && S.coachPickerOpen ? `
-    <div class="rounded-xl border border-border bg-white card-shadow overflow-hidden animate-scale-in">
-      <p class="text-[10px] font-bold uppercase tracking-widest text-muted-fg px-3 pt-2.5 pb-1.5">Pick your system — locks on first spin</p>
-      ${COACHES.map(c => `
-      <button data-action="coach-pick-${c.id}"
-        class="w-full px-3 py-2 flex items-center gap-2.5 text-left cursor-pointer transition-all hover:bg-slate-50 border-t border-border"
-        style="${c.id === S.coach ? `background:${c.accent}0d` : ''}">
-        <span class="w-2 h-2 rounded-full flex-shrink-0" style="background:${c.accent}"></span>
-        <span class="text-xs font-black text-foreground flex-shrink-0 w-28 truncate">${c.name}</span>
-        <span class="text-[10px] font-bold uppercase tracking-wider flex-shrink-0" style="color:${c.accent}">${c.system}</span>
-        <span class="text-[10px] text-muted-fg truncate hidden sm:inline">${c.desc.split('—')[0].trim()}</span>
-        ${c.id === S.coach ? `<span class="ml-auto text-xs flex-shrink-0" style="color:${c.accent}">✓</span>` : ''}
-      </button>`).join('')}
-    </div>` : '';
-
-  return `<div class="draft-coach-chip">${chip}${picker}</div>`;
-}
-
 // ── Drafting screen ───────────────────────────────────────────────────────────
 function renderColdOpenBanner() {
   if (!S.coldOpen || S.round > 0) return '';
-  const coach = COACHES.find(c => c.id === S.coach);
   return `
   <div class="rounded-2xl p-3.5 flex items-center gap-3 animate-fade-up card-shadow draft-cold-open"
     style="background:var(--surface-orange);border:1.5px solid #fed7aa">
     <span class="text-2xl flex-shrink-0">🏏</span>
     <div class="min-w-0">
       <p class="text-sm font-black text-foreground leading-tight">Welcome to 14-0 — your first pick is waiting.</p>
-      <p class="text-xs text-muted-fg mt-0.5">Captain <b>${coach ? coach.name : ''}</b> is running the show${coach ? ` (${coach.system})` : ''}. Draft 5 legends, then chase the perfect season.</p>
+      <p class="text-xs text-muted-fg mt-0.5">Spin the wheel, draft 5 IPL legends, then chase the perfect season.</p>
     </div>
   </div>`;
 }
@@ -862,7 +809,6 @@ function renderDrafting() {
             ${renderModeDraftBanner()}
             ${full ? renderSimulateCard() : ''}
             ${renderRoundBar()}
-            ${renderCoachChip()}
             ${!full ? renderSlotMachine() : ''}
             ${shouldShowDraftBoard(full) ? renderDraftBoard() : ''}
             ${renderRoster()}
@@ -882,7 +828,6 @@ function renderDrafting() {
         ${renderModeDraftBanner()}
         ${full ? renderSimulateCard() : ''}
         ${renderRoundBar()}
-        ${renderCoachChip()}
         ${!full ? renderSlotMachine() : ''}
         ${shouldShowDraftBoard(full) ? renderDraftBoard() : ''}
         ${renderStatGauges()}
@@ -897,8 +842,6 @@ function render1v1RosterPanel(roster, playerNum, isActive) {
   const color    = playerNum === 1 ? '#2563eb' : '#d97706';
   const bg       = playerNum === 1 ? '#eff6ff'  : '#fffbeb';
   const bdrCol   = isActive ? color : 'var(--border)';
-  const coachId  = playerNum === 1 ? S.p1Coach : S.p2Coach;
-  const coachObj = coachId ? COACHES.find(c => c.id === coachId) : null;
   // Active player with a player selected — slots become tappable placement targets
   const canPlace = isActive && !!S.selectedPlayer;
 
@@ -930,7 +873,6 @@ function render1v1RosterPanel(roster, playerNum, isActive) {
         ? `<span class="text-[10px] font-black px-2 py-0.5 rounded-full animate-pulse-glow" style="background:${bg};color:${color}">${canPlace ? '👆 Pick a slot' : '🎯 ON CLOCK'}</span>`
         : `<span class="text-[10px] text-muted-fg font-medium">${(playerNum === 1 ? S.p1Round : S.p2Round)}/5</span>`}
     </div>
-    ${coachObj ? `<p class="text-[10px] text-muted-fg mb-1.5 truncate">${coachObj.name}</p>` : ''}
     ${slots}
   </div>`;
 }
@@ -987,15 +929,11 @@ function renderDrafting1v1() {
     </div>`;
   }).join('');
 
-  const aiCoach = COACHES.find(c => c.id === S.p2Coach);
-
   return `
   <div class="min-h-screen main-gradient">
     ${renderHeader(true)}
     <main class="flex flex-col items-center px-4 pt-2 pb-8">
       <div class="w-full max-w-3xl flex flex-col gap-3">
-
-        ${S.mode === 'gm-ai' ? renderCoachChip() : ''}
 
         <!-- ON THE CLOCK banner -->
         <div class="flex items-center justify-between px-4 py-2.5 rounded-xl font-black text-sm uppercase tracking-widest"
@@ -1012,7 +950,7 @@ function renderDrafting1v1() {
           </div>
           <div class="flex items-center gap-3 mt-2">
             <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full inline-block" style="background:#2563eb"></span><span class="text-[9px] text-muted-fg">${labels.p1}</span></span>
-            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full inline-block" style="background:#d97706"></span><span class="text-[9px] text-muted-fg">${labels.p2}${aiCoach ? ` · ${aiCoach.name}` : ''}</span></span>
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full inline-block" style="background:#d97706"></span><span class="text-[9px] text-muted-fg">${labels.p2}</span></span>
           </div>
         </div>
 
@@ -1989,17 +1927,6 @@ function renderResults() {
             <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border border-border bg-slate-50 text-slate-600">
               🌍 Fans: ${Math.round(teamFans.sum)}M
             </span>
-            ${(() => {
-              if (!r.coachBoost) return '';
-              const coachObj = S.coach ? COACHES.find(c => c.id === S.coach) : null;
-              if (!coachObj) return '';
-              const pctOfMax = r.coachBoost / 0.040;
-              const grade    = pctOfMax >= 0.75 ? 'Mastered' : pctOfMax >= 0.4 ? 'Building' : 'Faint';
-              return `<span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border"
-                style="background:${coachObj.accent}12;border-color:${coachObj.accent}40;color:${coachObj.accent}">
-                📋 ${coachObj.system}: +${(r.coachBoost * 100).toFixed(1)}% · ${grade}
-              </span>`;
-            })()}
             ${hypeBadge}
           </div>
         </div>
@@ -2505,8 +2432,10 @@ function renderTrophyRoom() {
         ${isPerfect ? `<p class="text-[10px] font-black uppercase tracking-widest text-amber-600">⭐ Perfect Season — 14-0</p>` : ''}
         <div class="flex items-start justify-between gap-2">
           <div class="min-w-0">
-            <p class="font-black text-base ${isPerfect ? 'text-amber-700' : 'text-primary'} truncate">${t.coachName}</p>
-            <p class="text-xs text-muted-fg">${t.coachSystem}</p>
+            <!-- teamName on new entries; coachName kept as a fallback so trophies
+                 saved before the captain feature was removed still render. -->
+            <p class="font-black text-base ${isPerfect ? 'text-amber-700' : 'text-primary'} truncate">${esc(t.teamName || t.coachName || 'Championship XI')}</p>
+            <p class="text-xs text-muted-fg">${esc(t.era && t.era !== 'all' ? `${t.era} era` : (t.coachSystem || 'All eras'))}</p>
           </div>
           <div class="text-right flex-shrink-0">
             <p class="font-black text-lg ${isPerfect ? 'text-amber-700' : 'text-foreground'}">${t.wins}–${t.losses}</p>
@@ -2599,14 +2528,6 @@ function renderSeriesResult() {
       ${p1Won ? labels.p1Short : labels.p2Short}</div>`;
   }).join('');
 
-  const p1CoachId = S.p1Coach || S.p1?.coach;
-  // No fallback to S.coach here — in Dynasty Duel S.coach is the PLAYER's
-  // coach and S.p2Coach is deliberately null (the CPU dynasty has no coach
-  // card), so falling back printed the player's own coach under the
-  // dynasty's roster column.
-  const p1Coach   = COACHES.find(c => c.id === p1CoachId);
-  const p2Coach   = COACHES.find(c => c.id === S.p2Coach);
-
   const rosterMini = (roster, positions) => positions.map(pos => {
     const p = roster[pos];
     if (!p) return '';
@@ -2676,7 +2597,6 @@ function renderSeriesResult() {
               <p class="text-xs font-bold uppercase tracking-widest" style="color:#2563eb">${labels.p1}</p>
               ${ratingBadge(p1s.avgRating)}
             </div>
-            ${p1Coach ? `<p class="text-[10px] text-muted-fg mb-2 font-medium">Captain: ${p1Coach.name}</p>` : ''}
             <p class="text-[10px] font-bold uppercase tracking-wider text-muted-fg/60 mb-1">Starting 5</p>
             ${rosterMini(S.p1Roster || S.p1?.roster || {}, ['OPEN','MID','WK','PACE','SPIN'])}
           </div>
@@ -2685,7 +2605,6 @@ function renderSeriesResult() {
               <p class="text-xs font-bold uppercase tracking-widest" style="color:#d97706">${labels.p2}</p>
               ${ratingBadge(p2s.avgRating)}
             </div>
-            ${p2Coach ? `<p class="text-[10px] text-muted-fg mb-2 font-medium">Captain: ${p2Coach.name}</p>` : ''}
             <p class="text-[10px] font-bold uppercase tracking-wider text-muted-fg/60 mb-1">Starting 5</p>
             ${S.mode === 'dynasty-duel'
               ? `<p class="text-xs text-muted-fg py-2">Legendary ${labels.p2} — strength ${p2s.strength.toFixed(2)}</p>`
@@ -2732,8 +2651,6 @@ function renderSeriesPreview() {
   const sr   = S.seriesResult;
   const p1s  = sr.p1Season;
   const p2s  = sr.p2Season;
-  const p1CoachObj = COACHES.find(c => c.id === S.p1Coach);
-  const p2CoachObj = COACHES.find(c => c.id === S.p2Coach);
   const isDynasty = S.mode === 'dynasty-duel';
   const maxStr  = Math.max(p1s.strength, p2s.strength, 0.01);
   const p1pct   = Math.round((p1s.strength / maxStr) * 100);
@@ -2767,7 +2684,7 @@ function renderSeriesPreview() {
           <div class="flex flex-col gap-2">
             <div>
               <div class="flex justify-between text-xs mb-1">
-                <span class="font-bold" style="color:#2563eb">${labels.p1}${p1CoachObj ? ` · ${p1CoachObj.name}` : ''}</span>
+                <span class="font-bold" style="color:#2563eb">${labels.p1}</span>
                 <span class="font-semibold text-foreground">${p1s.strength.toFixed(3)}</span>
               </div>
               <div class="h-2.5 rounded-full bg-border overflow-hidden">
@@ -2776,7 +2693,7 @@ function renderSeriesPreview() {
             </div>
             <div>
               <div class="flex justify-between text-xs mb-1">
-                <span class="font-bold" style="color:#d97706">${labels.p2}${p2CoachObj ? ` · ${p2CoachObj.name}` : ''}</span>
+                <span class="font-bold" style="color:#d97706">${labels.p2}</span>
                 <span class="font-semibold text-foreground">${p2s.strength.toFixed(3)}</span>
               </div>
               <div class="h-2.5 rounded-full bg-border overflow-hidden">

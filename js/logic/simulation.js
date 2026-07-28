@@ -5,7 +5,7 @@
  * starters. A sigmoid maps adjustedStrength → per-match win probability.
  *
  * Exports:
- *   simulateSeason(starters, coach, profile?)  → full result object
+ *   simulateSeason(starters, profile?)  → full result object
  *   simulateSeries(playerStr, oppStr) → best-of-7 series result object
  *   simulateDynastySeries(playerSeason, opponent) → head-to-head shaped series result
  */
@@ -26,7 +26,10 @@ export const SEASON_GAMES = 14;
 // WIN_CAP:    per-match win probability ceiling — even a maxed XI can lose
 //             any given night, so 14-0 is never guaranteed
 const SIM_K      = 3.5;
-const SIM_CENTER = 1.8;
+// 1.776 = the old 1.8 center minus the retired captain-boost midpoint
+// (0.008 floor + half the 0.032 mastery range). Keeps a typical XI's win
+// rate identical to the pre-removal balance.
+const SIM_CENTER = 1.776;
 const WIN_CAP    = 0.99;
 
 let _baselinesCache = null;
@@ -53,78 +56,6 @@ function computeSimBaselines() {
     STARTER_BASE: Object.fromEntries(STATS.map(k => [k, avg(sTier, k) * 5])),
   };
   return _baselinesCache;
-}
-
-// ── Captain system progress ───────────────────────────────────────────────────
-// Every captain earns the same boost envelope: FLOOR guaranteed, FLOOR + RANGE
-// at full system mastery. Progress (0→1) is a steerable drafting objective,
-// keyed to quantities the sim already computes so it self-normalizes to the
-// live player database.
-const COACH_BOOST_FLOOR = 0.008;
-const COACH_BOOST_RANGE = 0.032;
-
-const clamp01 = v => Math.max(0, Math.min(1, v));
-
-/** Avg per-stat ratio of the filled starters vs a pro-rated baseline → 0..1. */
-function statRatioProgress(players, stats, base, slotCount) {
-  if (!players.length) return 0;
-  const frac = players.length / slotCount;
-  let sum = 0;
-  for (const k of stats) {
-    const tot = players.reduce((s, p) => s + eraAdjustedStat(p, k), 0);
-    sum += tot / (base[k] * frac);
-  }
-  return clamp01(((sum / stats.length) - 1.0) / 0.30);
-}
-
-/**
- * @param {string} coach     captain id
- * @param {object[]} starters filled starter players (0–5 during draft)
- * @returns {{ progress: number, metric: string }}
- */
-export function coachSystemProgress(coach, starters) {
-  const { STARTER_BASE } = computeSimBaselines();
-
-  if (coach === 'kohli') {
-    const stars = starters.filter(p => (p.popularity ?? 50) >= 85).length;
-    return { progress: clamp01(stars / 4), metric: `${stars}/4 stars` };
-  }
-  if (coach === 'warner') {
-    const hitters = starters.filter(p => p.archetype === 'Power Hitter').length;
-    return { progress: clamp01(hitters / 3), metric: `${hitters}/3 power hitters` };
-  }
-  if (coach === 'dhoni') {
-    const p = statRatioProgress(starters, ['runs'], STARTER_BASE, 5);
-    return { progress: p, metric: `Batting efficiency ${Math.round(p * 100)}%` };
-  }
-  if (coach === 'pandya') {
-    if (!starters.length) return { progress: 0, metric: 'Balance 0%' };
-    const frac = starters.length / 5;
-    let minRatio = Infinity;
-    for (const k of ['runs', 'sr', 'wkts', 'econ', 'field']) {
-      const tot = starters.reduce((s, p) => s + eraAdjustedStat(p, k), 0);
-      minRatio = Math.min(minRatio, tot / (STARTER_BASE[k] * frac));
-    }
-    const p = clamp01((minRatio - 0.70) / 0.25);
-    return { progress: p, metric: `Balance ${Math.round(p * 100)}%` };
-  }
-  if (coach === 'gambhir') {
-    const leaders = starters.filter(
-      p => (p.traits || []).includes('Captain Material') || (p.traits || []).includes('Match-Winner')
-    ).length;
-    const p = clamp01(leaders / 3);
-    return { progress: p, metric: `Leadership ${leaders}/3` };
-  }
-  const starterSystems = {
-    warne: { stats: ['wkts', 'econ'], label: 'Bowling Control' },
-    rohit: { stats: ['wkts'],         label: 'Strike Bowling' },
-  };
-  const sys = starterSystems[coach];
-  if (sys) {
-    const p = statRatioProgress(starters, sys.stats, STARTER_BASE, 5);
-    return { progress: p, metric: `${sys.label} ${Math.round(p * 100)}%` };
-  }
-  return { progress: 0, metric: '' };
 }
 
 // ── Loss diagnosis ────────────────────────────────────────────────────────────
@@ -291,11 +222,10 @@ function simulatePlayerStats(starters, winPct) {
  * Simulates a full 14-match IPL league stage.
  *
  * @param {object[]} starters  5 starting XI player objects
- * @param {string|null} coach  captain id
  * @param {string} [profile]   'classic' | 'bowling' | 'fans' — defaults from S.mode
  * @returns {object}
  */
-export function simulateSeason(starters, coach = null, profile = null) {
+export function simulateSeason(starters, profile = null) {
   const simProfile = profile || getModeConfig(S?.mode).simProfile || 'classic';
 
   const sumStats = arr => arr.reduce(
@@ -348,11 +278,7 @@ export function simulateSeason(starters, coach = null, profile = null) {
 
   const lossDiagnosis = buildLossDiagnosis(starters, weakestStat, balancePenalty, sRatio, STARTER_BASE);
 
-  const coachBoost = coach
-    ? COACH_BOOST_FLOOR + coachSystemProgress(coach, starters).progress * COACH_BOOST_RANGE
-    : 0;
-
-  const baseStrength = Math.max(0, strength - balancePenalty + coachBoost);
+  const baseStrength = Math.max(0, strength - balancePenalty);
 
   // ── Popularity / Fan-Hype modifier ───────────────────────────────────────
   const POP_FLOOR   = 35;
@@ -415,7 +341,6 @@ export function simulateSeason(starters, coach = null, profile = null) {
     ratingEloDelta,
     playerStats, statLeaders, simTotals,
     fansM,
-    coachBoost: +coachBoost.toFixed(3),
     games,
     simProfile,
     teamFielding,
@@ -469,9 +394,9 @@ function generateGameScore(p1Strength, p2Strength) {
   };
 }
 
-export function simulateHeadToHeadSeries(p1Starters, p1Coach, p2Starters, p2Coach) {
-  const p1Season = simulateSeason(p1Starters, p1Coach);
-  const p2Season = simulateSeason(p2Starters, p2Coach);
+export function simulateHeadToHeadSeries(p1Starters, p2Starters) {
+  const p1Season = simulateSeason(p1Starters);
+  const p2Season = simulateSeason(p2Starters);
 
   const p1Str = p1Season.strength;
   const p2Str = p2Season.strength;

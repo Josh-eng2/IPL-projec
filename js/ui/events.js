@@ -12,7 +12,7 @@
 
 import {
   S, startGame, startGame1v1, POSITIONS,
-  TEAMS, DECADES, COACHES, CPU_TEAMS, pick, pickCosmetic, buildBracket, getPlayerSeed, SNAKE_ORDER,
+  TEAMS, DECADES, CPU_TEAMS, pick, pickCosmetic, buildBracket, getPlayerSeed, SNAKE_ORDER,
   getUtcDateString, seedDailyRng, clearDailyRng,
 } from '../logic/state.js';
 import {
@@ -115,8 +115,7 @@ function dispatch(action) {
   // Block human input while the AI GM is drafting
   if (S.mode === 'gm-ai' && S.currentPlayer === 2 && S.phase === 'drafting') {
     const blocked = action === 'spin' || action === 'skip-team' || action === 'skip-decade'
-      || action.startsWith('draft-pick-') || action.startsWith('place-')
-      || action.startsWith('coach-pick-') || action === 'coach-picker-toggle';
+      || action.startsWith('draft-pick-') || action.startsWith('place-');
     if (blocked) return;
   }
   // ── Mode selection ─────────────────────────────────────────────────────────
@@ -188,27 +187,11 @@ function dispatch(action) {
   if (action === 'open-daily-leaderboard') { showDailyLeaderboardModal(); return; }
   if (action === 'open-daily-stats')       { showDailyStatsModal(); return; }
   if (action === 'submit-daily')           { doSubmitDaily();             return; }
-  // ── Coach (in-draft chip) & Era (header picker) ────────────────────────────
-  // Coach lives on the drafting screen; era lives in the header. Both lock on first spin.
-  if (action.startsWith('coach-pick-')) {
-    if (!S.coachLocked) {
-      S.coach = action.slice(11);
-      S.coachPickerOpen = false;
-      if (S.mode === 'gm-ai') S.p1Coach = S.coach;
-    }
-    render(); return;
-  }
-  if (action === 'coach-picker-toggle') {
-    if (!S.coachLocked) {
-      S.coachPickerOpen = !S.coachPickerOpen;
-      if (S.coachPickerOpen) S.eraPickerOpen = false;
-    }
-    render(); return;
-  }
+  // ── Era (header picker) ────────────────────────────────────────────────────
+  // Era lives in the header and locks on the first spin.
   if (action === 'era-picker-toggle') {
     if (!S.eraLocked) {
       S.eraPickerOpen = !S.eraPickerOpen;
-      if (S.eraPickerOpen) S.coachPickerOpen = false;
     }
     render(); return;
   }
@@ -224,11 +207,11 @@ function dispatch(action) {
   // Dynasty Duel is unlimited — Restart / new roster are allowed.
   if (action === 'restart') {
     if (S.mode === 'daily') return;
-    confirmLeave(() => { S.mode = null; S.phase = 'mode-select'; S.coach = null; S.p1 = null; S.dailyChallenge = null; S.dynastyOpponent = null; render(); gdShowAd(); }); return;
+    confirmLeave(() => { S.mode = null; S.phase = 'mode-select'; S.p1 = null; S.dailyChallenge = null; S.dynastyOpponent = null; render(); gdShowAd(); }); return;
   }
   if (action === 'draft-new-roster') {
     if (S.mode === 'daily') return;
-    S.mode = null; S.phase = 'mode-select'; S.coach = null; S.p1 = null; S.dailyChallenge = null; S.dynastyOpponent = null; render(); gdShowAd(); return;
+    S.mode = null; S.phase = 'mode-select'; S.p1 = null; S.dailyChallenge = null; S.dynastyOpponent = null; render(); gdShowAd(); return;
   }
   if (action === 'view-trophies')    { S.phase = 'trophy-room'; render(); return; }
   if (action === 'view-legends')     { S.legendsReturnPhase = S.phase; S.phase = 'legends'; render(); return; }
@@ -364,39 +347,16 @@ function setEra(era) {
 
 function doStartGame(era = 'all') {
   clearDailyRng(); // every draft (re)start begins real-random; mode-daily re-seeds right after this returns
-  if (S.mode === '1v1') {
-    // Single shared era — no per-player coach selection, launch draft immediately
-    S.p1Coach = null;
-    S.p2Coach = null;
-    S.p1Era   = era;
-    S.p2Era   = era;
+  if (S.mode === '1v1' || S.mode === 'gm-ai') {
+    // Single shared era — launch the alternating draft immediately
+    S.p1Era = era;
+    S.p2Era = era;
     startGame1v1();
-    logAnalyticsEvent('1v1_draft_started', { era });
+    logAnalyticsEvent(S.mode === 'gm-ai' ? 'gm_ai_draft_started' : '1v1_draft_started', { era });
     render(); return;
-  }
-  if (S.mode === 'gm-ai') {
-    if (!S.coach) {
-      let remembered = null;
-      try { remembered = localStorage.getItem('nba820_coach'); } catch (e) {}
-      S.coach = COACHES.some(c => c.id === remembered) ? remembered : 'dhoni';
-    }
-    S.p1Coach = S.coach;
-    S.p2Coach = pick(COACHES).id;
-    S.p1Era   = era;
-    S.p2Era   = era;
-    startGame1v1();
-    logAnalyticsEvent('gm_ai_draft_started', { era, coach: S.p1Coach, aiCoach: S.p2Coach });
-    render(); return;
-  }
-  // Default coach: last one used, else the recommended starter system.
-  // Changeable from the drafting screen until the first spin locks it.
-  if (!S.coach) {
-    let remembered = null;
-    try { remembered = localStorage.getItem('nba820_coach'); } catch (e) {}
-    S.coach = COACHES.some(c => c.id === remembered) ? remembered : 'dhoni';
   }
   startGame(era);
-  logAnalyticsEvent('game_started', { era, coach: S.coach ?? 'none', mode: S.mode ?? 'solo' });
+  logAnalyticsEvent('game_started', { era, mode: S.mode ?? 'solo' });
   render();
 }
 
@@ -443,16 +403,8 @@ export function confirmLeave(fn, opts = {}) {
 export function doSpin() {
   if (S.spinState === 'spinning') return;
 
-  // First spin commits the coach — the system is chosen with zero players
-  // seen, so the system meter is an objective rather than a post-hoc score.
-  // Pure 1v1 has no coach; GM vs AI does.
-  if (S.mode !== '1v1' && !S.coachLocked) {
-    S.coachLocked     = true;
-    S.coachPickerOpen = false;
-    if (S.mode === 'gm-ai') S.p1Coach = S.coach;
-    try { if (S.coach) localStorage.setItem('nba820_coach', S.coach); } catch (e) {}
-  }
-
+  // First spin commits the era — chosen with zero players seen, so it's a
+  // real constraint rather than a post-hoc pick.
   if (!S.eraLocked) {
     S.eraLocked     = true;
     S.eraPickerOpen = false;
@@ -693,7 +645,7 @@ function placePlayer(pos) {
       const p1s = POSITIONS.map(p => S.p1Roster[p]).filter(Boolean);
       const p2s = POSITIONS.map(p => S.p2Roster[p]).filter(Boolean);
       recordLegends([...p1s, ...p2s]);
-      S.seriesResult       = simulateHeadToHeadSeries(p1s, S.p1Coach, p2s, S.p2Coach);
+      S.seriesResult       = simulateHeadToHeadSeries(p1s, p2s);
       S.seriesRevealedCount = 0;
       S.phase = 'series-preview';
       logAnalyticsEvent(S.mode === 'gm-ai' ? 'gm_ai_series_simulated' : '1v1_series_simulated', {
@@ -756,10 +708,6 @@ function doAiTurn() {
   if (S.mode !== 'gm-ai' || S.currentPlayer !== 2 || S.phase !== 'drafting') return;
   if (S.p2Round >= 5) return;
 
-  if (!S.coachLocked) {
-    S.coachLocked = true;
-    S.coachPickerOpen = false;
-  }
   if (!S.eraLocked) {
     S.eraLocked = true;
     S.eraPickerOpen = false;
@@ -799,15 +747,13 @@ function doSimulate() {
   // Dynasty Duel — skip the 82-game ticker; go straight to a best-of-7.
   if (S.mode === 'dynasty-duel') {
     const opponent = S.dynastyOpponent || pickDynastyForPlay();
-    S.result = simulateSeason(starters, S.coach);
+    S.result = simulateSeason(starters);
     S.result.newLegends = recordLegends(starters).length;
     S.seriesResult = simulateDynastySeries(S.result, opponent);
     S.seriesRevealedCount = 0;
     // Mirror player roster into p1 for series UI; p2 is the dynasty (no cards).
     S.p1Roster = { ...S.roster };
-    S.p2Roster = { PG: null, SG: null, SF: null, PF: null, C: null };
-    S.p1Coach = S.coach;
-    S.p2Coach = null;
+    S.p2Roster = { OPEN: null, MID: null, WK: null, PACE: null, SPIN: null };
 
     const won = S.seriesResult.winner === 'p1';
     const score = dynastyDuelScore(S.seriesResult.p1Wins, won, S.result.strength);
@@ -833,7 +779,7 @@ function doSimulate() {
     return;
   }
 
-  S.result  = simulateSeason(starters, S.coach);
+  S.result  = simulateSeason(starters);
   S.runSaved = false;
 
   // Meta-progression: every started legend joins the permanent collection.
@@ -846,7 +792,7 @@ function doSimulate() {
 
   logAnalyticsEvent('season_simulated', {
     wins: S.result.wins, losses: S.result.losses,
-    coach: S.coach ?? 'none', era: S.selectedEra ?? 'all', mode: S.mode ?? 'solo',
+    era: S.selectedEra ?? 'all', mode: S.mode ?? 'solo',
   });
 
   // First-visit hook payoff delivered — from here on they're a veteran.
@@ -1156,15 +1102,12 @@ function updateSeasonSimDOM() {
 }
 
 function buildGlobalScorePayload() {
-  const coachObj = S.coach ? COACHES.find(c => c.id === S.coach) : null;
-  const r        = S.result;
+  const r = S.result;
   return {
     teamName:    S.teamName,
     wins:        r.wins,
     losses:      r.losses,
     champion:    S.playoffs?.champion ?? false,
-    coachId:     S.coach       ?? '',
-    coachName:   coachObj?.name  ?? '',
     era:         S.selectedEra ?? 'all',
     avgRating:   Math.round(r.avgRating ?? 0),
     avgPopularity: r.avgPopularity ?? 50,
@@ -1278,16 +1221,13 @@ async function doSubmitGlobal() {
 let _submittingDaily = false;
 
 function buildDailyScorePayload() {
-  const coachObj = S.coach ? COACHES.find(c => c.id === S.coach) : null;
-  const r        = S.result;
+  const r = S.result;
   return {
     date:        S.dailyDate || getUtcDateString(),
     teamName:    S.teamName,
     wins:        r.wins,
     losses:      r.losses,
     champion:    false, // the daily board captures the shared regular-season board only
-    coachId:     S.coach       ?? '',
-    coachName:   coachObj?.name  ?? '',
     avgRating:   Math.round(r.avgRating ?? 0),
     starters:    POSITIONS.map(p => S.roster[p]?.name || '—').join(', ').slice(0, 100),
     timestampMs: Date.now(),
@@ -1441,7 +1381,6 @@ function onPlayoffChampion() {
   logAnalyticsEvent('championship_won', {
     team:  S.teamName,
     wins:  S.result?.wins ?? 0,
-    coach: S.coach ?? 'none',
     era:   S.selectedEra ?? 'all',
   });
 }

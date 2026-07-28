@@ -20,10 +20,6 @@
  *                          && request.resource.data.losses <= 82
  *                          && request.resource.data.teamName is string
  *                          && request.resource.data.teamName.size() <= 30
- *                          && request.resource.data.coachId is string
- *                          && request.resource.data.coachId.size() <= 20
- *                          && request.resource.data.coachName is string
- *                          && request.resource.data.coachName.size() <= 30
  *                          && request.resource.data.era is string
  *                          && request.resource.data.era.size() <= 10
  *                          && request.resource.data.starters is string
@@ -76,10 +72,6 @@
  *                      && request.resource.data.losses <= 82
  *                      && request.resource.data.teamName is string
  *                      && request.resource.data.teamName.size() <= 30
- *                      && request.resource.data.coachId is string
- *                      && request.resource.data.coachId.size() <= 20
- *                      && request.resource.data.coachName is string
- *                      && request.resource.data.coachName.size() <= 30
  *                      && request.resource.data.avgRating is number
  *                      && request.resource.data.avgRating >= 0
  *                      && request.resource.data.avgRating <= 100
@@ -234,8 +226,6 @@ export function logAnalyticsEvent(eventName, params = {}) {
  *   wins:        number,
  *   losses:      number,
  *   champion:    boolean,
- *   coachId:     string,
- *   coachName:   string,
  *   era:         string,
  *   avgRating:   number,
  *   avgPopularity?: number,
@@ -257,8 +247,6 @@ export async function submitGlobalScore(entry) {
     wins:         entry.wins        ?? 0,
     losses:       entry.losses      ?? 0,
     champion:     entry.champion    ?? false,
-    coachId:      entry.coachId     ?? '',
-    coachName:    entry.coachName   ?? '',
     era:          entry.era         ?? 'all',
     avgRating:    entry.avgRating   ?? 0,
     ...(entry.avgPopularity != null ? { avgPopularity: entry.avgPopularity } : {}),
@@ -325,8 +313,6 @@ export async function fetchLeaderboard(filter = 'alltime') {
  *   wins:        number,
  *   losses:      number,
  *   champion:    boolean,
- *   coachId:     string,
- *   coachName:   string,
  *   avgRating:   number,
  *   starters:    string,
  *   timestampMs: number,
@@ -347,8 +333,6 @@ export async function submitDailyScore(entry) {
     wins:         entry.wins        ?? 0,
     losses:       entry.losses      ?? 0,
     champion:     entry.champion    ?? false,
-    coachId:      entry.coachId     ?? '',
-    coachName:    entry.coachName   ?? '',
     avgRating:    entry.avgRating   ?? 0,
     starters:    (entry.starters    ?? '').slice(0, 100),
     timestampMs:  entry.timestampMs ?? 0,
