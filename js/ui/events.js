@@ -1288,7 +1288,7 @@ function formatDailyShareLabel() {
   const label = new Date(S.dailyDate + 'T00:00:00Z')
     .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
   // Include the day's specific challenge and verdict in the share caption —
-  // "Daily Challenge — Jul 14, 2026 · 👎 Boos Only · PASSED ✅". The share
+  // "Daily Challenge — Jul 14, 2026 · 👎 Domestic Talent · PASSED ✅". The share
   // card itself keeps its fixed-width corner badge (shareCard.js).
   const ch  = S.dailyChallenge;
   const chBit = ch ? ` · ${ch.emoji} ${ch.title}` : '';
