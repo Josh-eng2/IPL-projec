@@ -26,11 +26,22 @@ export const SEASON_GAMES = 14;
 // SIM_CENTER: adjustedStrength that maps to exactly 50 % win rate
 // WIN_CAP:    per-match win probability ceiling — even a maxed XI can lose
 //             any given night, so 14-0 is never guaranteed
-const SIM_K      = 3.5;
-// 1.776 = the old 1.8 center minus the retired captain-boost midpoint
-// (0.008 floor + half the 0.032 mastery range). Keeps a typical XI's win
-// rate identical to the pre-removal balance.
-const SIM_CENTER = 1.776;
+//
+// These are calibrated against the strength range this player database can
+// actually produce, measured over 30k simulated drafts (pick the best
+// available player for an open slot each round):
+//     weak draft  p5  ≈ 1.22    median p50 ≈ 1.40    strong p90 ≈ 1.53
+//     excellent   p99 ≈ 1.63    theoretical optimum ≈ 1.84
+// SIM_CENTER sits on the measured median, so an average draft is a coin-flip
+// team (~7 of 14) and drafting better moves the needle hard. At the optimum
+// the per-match rate is ~88 %, which puts a perfect 14-0 at roughly 1 run in
+// 6 — hard, repeatable, and genuinely reachable, which is the whole premise
+// of the game. (The previous 3.5/1.776 pairing pre-dated the cricket player
+// DB and sat ABOVE the best XI the database can build: the optimum won 55 %
+// and a median draft managed 3 wins, so ~97 % of runs ended in the bottom
+// tier and the playoffs/trophy room were effectively unreachable.)
+const SIM_K      = 4.5;
+const SIM_CENTER = 1.399;
 const WIN_CAP    = 0.99;
 
 let _baselinesCache = null;
@@ -370,8 +381,16 @@ function decorateSeasonGames(games, winPct) {
  * Simulates a head-to-head best-of-7 series between two drafted XIs.
  * Returns season stats for both teams + the series outcome.
  */
+// Steepness for a SINGLE match between two known strengths (knockout playoff
+// games, best-of-7 games). Deliberately gentler than SIM_K: one T20 match is
+// high-variance, and at the old value of 6 a modest 0.25 strength edge became
+// an 82/18 favourite, which made every playoff bracket a formality. At 3.2
+// that same edge is ~68/32 — the better side is clearly favoured, but a
+// single knockout can still go the other way, as it does in the real IPL.
+const MATCH_K = 3.2;
+
 function generateGameScore(p1Strength, p2Strength) {
-  const p1WinProb = 1 / (1 + Math.exp(-6 * (p1Strength - p2Strength)));
+  const p1WinProb = 1 / (1 + Math.exp(-MATCH_K * (p1Strength - p2Strength)));
   const p1Wins    = Math.random() < p1WinProb;
 
   const base   = 150 + Math.floor(Math.random() * 45);   // 150–194

@@ -74,23 +74,31 @@ export const ARCHETYPE_STYLE = {
 // ── Playoff CPU opponents ─────────────────────────────────────────────────────
 // Legendary IPL title-winning squads — used as Dynasty Duel opponents and to
 // fill out the playoff field alongside the player's team.
-
+//
+// Strengths are on the same scale simulateSeason() produces for a drafted XI,
+// so they must stay inside the range this player DB can actually reach
+// (median draft ≈ 1.40, excellent ≈ 1.63, theoretical optimum ≈ 1.84 — see
+// the SIM_CENTER note in js/logic/simulation.js). The ladder below spans
+// 1.53–1.85: the weakest dynasties are beatable by a good draft, and the
+// greatest sides ('10 CSK, '19 MI) are a coin-flip only for a near-perfect
+// XI. Ordering is preserved from the original ranking; buildBracket() takes
+// the top three, so those are what a playoff run actually faces.
 export const CPU_TEAMS = [
-  { name: '10 CSK',   strength: 2.38 },
-  { name: '19 MI',    strength: 2.37 },
-  { name: '11 CSK',   strength: 2.25 },
-  { name: '15 MI',    strength: 2.20 },
-  { name: '13 MI',    strength: 2.15 },
-  { name: '21 CSK',   strength: 2.00 },
-  { name: '23 CSK',   strength: 1.95 },
-  { name: '17 MI',    strength: 1.94 },
-  { name: '20 MI',    strength: 1.93 },
-  { name: '16 SRH',   strength: 1.92 },
-  { name: '22 GT',    strength: 1.91 },
-  { name: '08 RR',    strength: 1.90 },
-  { name: '12 KKR',   strength: 1.89 },
-  { name: '14 KKR',   strength: 1.88 },
-  { name: '24 KKR',   strength: 1.87 },
+  { name: '10 CSK',   strength: 1.85 },
+  { name: '19 MI',    strength: 1.84 },
+  { name: '11 CSK',   strength: 1.77 },
+  { name: '15 MI',    strength: 1.74 },
+  { name: '13 MI',    strength: 1.71 },
+  { name: '21 CSK',   strength: 1.63 },
+  { name: '23 CSK',   strength: 1.61 },
+  { name: '17 MI',    strength: 1.60 },
+  { name: '20 MI',    strength: 1.59 },
+  { name: '16 SRH',   strength: 1.58 },
+  { name: '22 GT',    strength: 1.57 },
+  { name: '08 RR',    strength: 1.56 },
+  { name: '12 KKR',   strength: 1.55 },
+  { name: '14 KKR',   strength: 1.54 },
+  { name: '24 KKR',   strength: 1.53 },
 ];
 
 // ── Utility ───────────────────────────────────────────────────────────────────
