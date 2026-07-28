@@ -28,9 +28,9 @@
  *                          && request.resource.data.era.size() <= 10
  *                          && request.resource.data.starters is string
  *                          && request.resource.data.starters.size() <= 100
- *                          && request.resource.data.chemScore is number
- *                          && request.resource.data.chemScore >= 0
- *                          && request.resource.data.chemScore <= 100
+ *                          && request.resource.data.avgRating is number
+ *                          && request.resource.data.avgRating >= 0
+ *                          && request.resource.data.avgRating <= 100
  *                          && (!('avgPopularity' in request.resource.data)
  *                              || (request.resource.data.avgPopularity is number
  *                                  && request.resource.data.avgPopularity >= 0
@@ -80,9 +80,9 @@
  *                      && request.resource.data.coachId.size() <= 20
  *                      && request.resource.data.coachName is string
  *                      && request.resource.data.coachName.size() <= 30
- *                      && request.resource.data.chemScore is number
- *                      && request.resource.data.chemScore >= 0
- *                      && request.resource.data.chemScore <= 100
+ *                      && request.resource.data.avgRating is number
+ *                      && request.resource.data.avgRating >= 0
+ *                      && request.resource.data.avgRating <= 100
  *                      && request.resource.data.starters is string
  *                      && request.resource.data.starters.size() <= 100
  *                      && request.resource.data.champion is bool
@@ -237,7 +237,7 @@ export function logAnalyticsEvent(eventName, params = {}) {
  *   coachId:     string,
  *   coachName:   string,
  *   era:         string,
- *   chemScore:   number,
+ *   avgRating:   number,
  *   avgPopularity?: number,
  *   fansM?:        number,
  *   starters:    string,
@@ -260,7 +260,7 @@ export async function submitGlobalScore(entry) {
     coachId:      entry.coachId     ?? '',
     coachName:    entry.coachName   ?? '',
     era:          entry.era         ?? 'all',
-    chemScore:    entry.chemScore   ?? 0,
+    avgRating:    entry.avgRating   ?? 0,
     ...(entry.avgPopularity != null ? { avgPopularity: entry.avgPopularity } : {}),
     ...(entry.fansM       != null ? { fansM:       entry.fansM       } : {}),
     // Rules cap starters at 100 chars — truncate here too so a long-named
@@ -327,7 +327,7 @@ export async function fetchLeaderboard(filter = 'alltime') {
  *   champion:    boolean,
  *   coachId:     string,
  *   coachName:   string,
- *   chemScore:   number,
+ *   avgRating:   number,
  *   starters:    string,
  *   timestampMs: number,
  * }} entry
@@ -349,7 +349,7 @@ export async function submitDailyScore(entry) {
     champion:     entry.champion    ?? false,
     coachId:      entry.coachId     ?? '',
     coachName:    entry.coachName   ?? '',
-    chemScore:    entry.chemScore   ?? 0,
+    avgRating:    entry.avgRating   ?? 0,
     starters:    (entry.starters    ?? '').slice(0, 100),
     timestampMs:  entry.timestampMs ?? 0,
     timestamp:    serverTimestamp(),

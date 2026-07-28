@@ -6,11 +6,9 @@
  *   buildShareCaption(data)  — plain-text caption for the same result
  *
  * `data` shape (built by events.js buildResultCardData()):
- *   { wins, losses, winPct, chemScore, longestStreak, tierLabel, tierEmoji,
+ *   { wins, losses, winPct, avgRating, longestStreak, tierLabel, tierEmoji,
  *     isChampion, starters: [{ pos, name, team, decade }], dailyLabel? }
  */
-
-import { chemTier } from '../logic/chemistry.js';
 
 const W = 1080, H = 1200;
 
@@ -98,7 +96,7 @@ function drawScoreRecord(ctx, wins, losses, cx, y, fontPx, winsColor) {
 }
 
 function drawCard(ctx, data) {
-  const { wins, losses, winPct, chemScore, longestStreak, tierLabel, tierEmoji, isChampion, starters, dailyLabel } = data;
+  const { wins, losses, winPct, avgRating, longestStreak, tierLabel, tierEmoji, isChampion, starters, dailyLabel } = data;
   const tc = isChampion ? TIER_COLORS['🏆'] : (TIER_COLORS[tierEmoji] || TIER_COLORS['✅']);
   const hasStreak = longestStreak >= 5;
 
@@ -179,7 +177,7 @@ function drawCard(ctx, data) {
   ctx.font = '600 27px Arial, sans-serif';
   ctx.fillStyle = '#94a3b8';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  const metaBits = [`Win% ${winPct}%`, chemScore != null ? `Team Chemistry ${chemTier(chemScore).label}` : null].filter(Boolean);
+  const metaBits = [`Win% ${winPct}%`, avgRating != null ? `Team Rating ${Math.round(avgRating)} OVR` : null].filter(Boolean);
   ctx.fillText(metaBits.join('    ·    '), W / 2, cy + META / 2);
   cy += META;
 
@@ -264,15 +262,15 @@ export function buildShareCardBlob(data) {
 
 /** @returns {string} plain-text caption to pair with the image (or stand alone) */
 export function buildShareCaption(data) {
-  const { wins, losses, tierLabel, tierEmoji, chemScore, isChampion, starters, dailyLabel } = data;
+  const { wins, losses, tierLabel, tierEmoji, avgRating, isChampion, starters, dailyLabel } = data;
   const headline = isChampion
     ? `🏆 ${wins}-${losses} — IPL CHAMPIONS`
     : `${tierEmoji} ${wins}-${losses} — ${tierLabel}`;
   const starterLines = starters
     .map(s => `🌟 ${s.name}${s.team ? ` (${[s.team, s.decade].filter(Boolean).join(' ')})` : ''}`)
     .join('\n');
-  const chemLine = chemScore != null
-    ? `\nTeam Chemistry: ${chemTier(chemScore).label}`
+  const ratingLine = avgRating != null
+    ? `\nTeam Rating: ${Math.round(avgRating)} OVR`
     : '';
   return [
     dailyLabel || null,
@@ -280,7 +278,7 @@ export function buildShareCaption(data) {
     '',
     'Starting 5:',
     starterLines,
-    chemLine,
+    ratingLine,
     '',
     'Can you beat it? → Can You Go 14-0?',
   ].filter(l => l !== null).join('\n').replace(/\n{3,}/g, '\n\n').trim();

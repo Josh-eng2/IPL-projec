@@ -27,8 +27,8 @@ export const DECADES = ['2008-11','2012-15','2016-19','2020-22','2023-25'];
 // Starting XI core, per user spec: 2 Batters, 1 Wicketkeeper, 2 Bowlers.
 // OPEN/MID mirror PG/SG (both "batter" roles, distinct slots); PACE/SPIN
 // mirror PF/C (both "bowler" roles, distinct slots) — same 5-slot shape
-// as the NBA original, so the rest of the engine (chemistry, sim, draft)
-// carries over structurally unchanged.
+// as the NBA original, so the rest of the engine (sim, draft) carries over
+// structurally unchanged.
 export const POSITIONS     = ['OPEN','MID','WK','PACE','SPIN'];
 export const ALL_POSITIONS  = [...POSITIONS]; // starters-only format — no bench
 export const TOTAL_ROUNDS   = 5;

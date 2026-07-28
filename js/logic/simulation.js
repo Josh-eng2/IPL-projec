@@ -3,8 +3,6 @@
  *
  * Starting-XI-only format: team strength comes entirely from the 5 drafted
  * starters. A sigmoid maps adjustedStrength → per-match win probability.
- * Chemistry bonuses/penalties (from chemistry.js) are baked into
- * adjustedStrength before the sigmoid is applied.
  *
  * Exports:
  *   simulateSeason(starters, coach, profile?)  → full result object
@@ -13,7 +11,6 @@
  */
 
 import { DB }                  from '../data/players.js';
-import { calculateChemistry, chemScoreFromBonus } from '../logic/chemistry.js';
 import { TEAMS, pickCosmetic, S } from '../logic/state.js';
 import { eraFactor, eraAdjustedStat, eraAdjustedLine, decadeFromBucketKey } from '../logic/era.js';
 import { getModeConfig }       from '../logic/modes.js';
@@ -351,21 +348,11 @@ export function simulateSeason(starters, coach = null, profile = null) {
 
   const lossDiagnosis = buildLossDiagnosis(starters, weakestStat, balancePenalty, sRatio, STARTER_BASE);
 
-  let { chemBonus, chemScore, chemReport, chemEntries, lineupAssignment } = calculateChemistry(starters, coach);
-
-  if (simProfile === 'bowling') {
-    const hasBowl = chemEntries.some(e => e.kind === 'synergy' && e.family === 'bowling');
-    const hasBat  = chemEntries.some(e => e.kind === 'synergy' && e.family === 'batting');
-    if (hasBowl) chemBonus *= 1.35;
-    else if (hasBat) chemBonus *= 0.75;
-    chemScore = chemScoreFromBonus(chemBonus);
-  }
-
   const coachBoost = coach
     ? COACH_BOOST_FLOOR + coachSystemProgress(coach, starters).progress * COACH_BOOST_RANGE
     : 0;
 
-  const baseStrength = Math.max(0, strength - balancePenalty + chemBonus + coachBoost);
+  const baseStrength = Math.max(0, strength - balancePenalty + coachBoost);
 
   // ── Popularity / Fan-Hype modifier ───────────────────────────────────────
   const POP_FLOOR   = 35;
@@ -421,7 +408,6 @@ export function simulateSeason(starters, coach = null, profile = null) {
     baseStrength: +baseStrength.toFixed(3),
     totals, ratio, sTotals,
     balancePenalty: +balancePenalty.toFixed(4), weakestStat, lossDiagnosis,
-    chemScore, chemReport, chemEntries, lineupAssignment,
     avgPopularity: +avgPop.toFixed(1),
     popEloDelta,
     avgRating:  +avgRating.toFixed(1),
@@ -518,8 +504,7 @@ export function simulateDynastySeries(playerSeason, opponent) {
   const p2Str = opponent.strength;
   const p2Season = {
     strength: p2Str,
-    chemScore: 88,
-    chemReport: [`🟢 Legendary dynasty: ${opponent.name}`],
+    avgRating: 96,
     wins: 12,
     losses: 2,
     avgPopularity: 92,

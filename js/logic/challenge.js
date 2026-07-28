@@ -88,9 +88,9 @@ export const CHALLENGES = [
   { id: 'strike-force',   type: 'objective', emoji: '🖐️', title: 'Strike Force',
     desc: 'Your bowlers must combine for 5+ wickets per match — and win 8+ matches.',
     params: { minWins: 8, teamWkts: 5 } },
-  { id: 'chemistry-class', type: 'objective', emoji: '🧪', title: 'Chemistry Class',
-    desc: 'Reach Perfect Team Chemistry and win 9+ matches.',
-    params: { minWins: 9, minChem: 95 } },
+  { id: 'all-star-xi',    type: 'objective', emoji: '⭐', title: 'All-Star XI',
+    desc: 'Average 92+ Team Rating and win 9+ matches.',
+    params: { minWins: 9, minRating: 92 } },
   { id: 'wire-to-wire',   type: 'objective', emoji: '⚡', title: 'Wire to Wire',
     desc: 'Put together a 10-match win streak at some point in the season.',
     params: { minWins: 8, minStreak: 10 } },
@@ -302,7 +302,7 @@ export function checkRosterConstraint(challenge, starters) {
  * daily board deliberately captures the shared 14-match run only — playoffs
  * stay out of it, matching markDailyPlayed's lock-at-sim-time rule).
  *
- * Reads S.result (wins, playerStats, simTotals, chemScore, longestStreak)
+ * Reads S.result (wins, playerStats, simTotals, avgRating, longestStreak)
  * and S.roster.
  */
 export function evaluateObjective(challenge, S) {
@@ -324,8 +324,8 @@ export function evaluateObjective(challenge, S) {
   if (P.teamWkts != null && (r.simTotals?.wkts ?? 0) < P.teamWkts) {
     failures.push(`Bowlers took ${(r.simTotals?.wkts ?? 0).toFixed(1)}/match — needed ${P.teamWkts}+`);
   }
-  if (P.minChem != null && (r.chemScore ?? 0) < P.minChem) {
-    failures.push('Team Chemistry too low — stack more synergies');
+  if (P.minRating != null && (r.avgRating ?? 0) < P.minRating) {
+    failures.push(`Team Rating ${Math.round(r.avgRating ?? 0)} — needed ${P.minRating}+`);
   }
   if (P.minStreak != null && (r.longestStreak ?? 0) < P.minStreak) {
     failures.push(`Longest streak ${r.longestStreak ?? 0} — needed ${P.minStreak}`);
