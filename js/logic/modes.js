@@ -56,5 +56,7 @@ export function fansFirstScore(avgPopularity, fansM, wins) {
 }
 
 export function fansFirstPassed(avgPopularity, wins) {
-  return (avgPopularity ?? 0) >= 70 && (wins ?? 0) >= 35;
+  // 6/14 wins ≈ the 43% bar the original 82-game version set at 35 wins —
+  // star power carries the score, but the record can't be embarrassing.
+  return (avgPopularity ?? 0) >= 70 && (wins ?? 0) >= 6;
 }

@@ -3,7 +3,7 @@
 **Can You Go 14-0?** is a free **IPL team generator** and **all-time roster builder**
 that runs entirely in your browser. Spin the draft wheel — a random **IPL team generator**
 that deals you a franchise and an era on every spin — draft legends from every era,
-build a stacked Team Rating, pick your captain, then run the **14-match season simulator** with one
+build a stacked Team Rating, then run the **14-match season simulator** with one
 question on the line: **can you go 14-0?**
 
 No sign-up, no download, no build step.
@@ -13,9 +13,8 @@ No sign-up, no download, no build step.
 1. **Spin the wheel** — the generator lands on a franchise + era combo (say, '16-19 RCB or '20-22 Mumbai Indians) and shows you that squad's players.
 2. **Draft your starting five** — pick one player per round across all five slots (Opener, Middle-order, Wicketkeeper, Pace, Spin). Skips are limited, so spend them wisely.
 3. **Maximize Team Rating** — the higher your five starters grade out, the better your odds.
-4. **Pick your captain** — each captain brings a different system and strategic bonus.
-5. **Simulate 14 matches** — run the season simulator and chase a perfect **14-0** record.
-6. **Make a run** — advance to the playoffs (Qualifier 1, Eliminator, Qualifier 2, Final), win the title, and collect legends in your trophy room.
+4. **Simulate 14 matches** — run the season simulator and chase a perfect **14-0** record.
+5. **Make a run** — advance to the playoffs (Qualifier 1, Eliminator, Qualifier 2, Final), win the title, and collect legends in your trophy room.
 
 ## Features
 

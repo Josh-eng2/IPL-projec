@@ -31,7 +31,8 @@
  *   handlers in modal HTML can call them.
  */
 
-import { S, COACHES, POSITIONS, getUtcDateString } from '../logic/state.js';
+import { S, POSITIONS, getUtcDateString } from '../logic/state.js';
+import { SEASON_GAMES }                          from '../logic/simulation.js';
 import { getLegendCatalog }                      from '../logic/draft.js';
 import { fetchLeaderboard, fetchDailyLeaderboard, fetchDailyCommunityStats } from '../utils/firebase.js';
 import { cgGetItem, cgSetItem }                    from '../utils/crazygames.js';
@@ -39,6 +40,11 @@ import { getDailyChallenge }                       from '../logic/challenge.js';
 import { weekKeyUTC }                              from '../logic/dynastyDuel.js';
 
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+// One-time cleanup — the captain (coach) feature was removed, so its
+// remembered pick has nothing to configure anymore. Written pre-removal via
+// plain localStorage (not the CrazyGames data module), so removed the same way.
+try { localStorage.removeItem('nba820_coach'); } catch (e) {}
 
 // Compact, wrapping row of the 5 stored stat leaders for a leaderboard entry.
 // Returns '' for entries saved before per-player stats existed.
@@ -75,7 +81,7 @@ export function markReturning() {
 
 // ── Legends collection ────────────────────────────────────────────────────────
 // A persistent set of every player id the user has ever STARTED (across solo,
-// HoopIQ, and both 1v1 rosters). Survives runs — the "number goes up"
+// Ball IQ, and both 1v1 rosters). Survives runs — the "number goes up"
 // meta-progression hook.
 
 const LEGENDS_KEY = 'nba820_legends';
@@ -112,14 +118,21 @@ export function recordLegends(players) {
 
 /**
  * Compacts the engine's statLeaders into a small, serializable shape for
- * persistence: { pts:{name,val}, reb, ast, stl, blk }. Returns null if the
- * result predates per-player stats.
+ * persistence: { batting:{name,val}, striking, bowling, economy, fielding }.
+ * Keys mirror simulation.js's statLeaders so leadersLineHtml can render them.
+ * Returns null if the result predates per-player stats.
  */
 export function packLeaders(r) {
   const L = r?.statLeaders;
   if (!L) return null;
   const one = e => (e ? { name: e.name, val: e.val } : null);
-  return { pts: one(L.scoring), reb: one(L.rebounding), ast: one(L.assists), stl: one(L.steals), blk: one(L.blocks) };
+  return {
+    batting:  one(L.batting),
+    striking: one(L.striking),
+    bowling:  one(L.bowling),
+    economy:  one(L.economy),
+    fielding: one(L.fielding),
+  };
 }
 
 export function saveLeaderboard() {
@@ -254,12 +267,11 @@ export function markDynastyDuelPlayed({ weekKey, opponentName, won, score, serie
 // ── Save trophy room entry ────────────────────────────────────────────────────
 
 export function saveToTrophyRoom() {
-  const r        = S.result;
-  const coachObj = S.coach ? COACHES.find(c => c.id === S.coach) : null;
+  const r = S.result;
   const entry = {
     date:        new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-    coachName:   coachObj ? coachObj.name   : 'Unknown',
-    coachSystem: coachObj ? coachObj.system : '',
+    teamName:    (S.teamName || '').trim(),
+    era:         S.selectedEra ?? 'all',
     wins:        r.wins,
     losses:      r.losses,
     avgRating:   Math.round(r.avgRating ?? 0),
@@ -286,7 +298,7 @@ function renderLeaderboardModal() {
   const rows = top5.length === 0
     ? `<p style="font-size:14px;color:var(--muted-fg);text-align:center;padding:24px 0">No runs yet — simulate a season to get on the board!</p>`
     : top5.map((e, i) => {
-        const isPerfect = e.wins === 82;
+        const isPerfect = e.wins === SEASON_GAMES;
         const rowBg     = isPerfect
           ? 'background:var(--surface-amber);border-color:var(--amber-border)'
           : 'background:var(--card3);border-color:var(--border)';
@@ -466,7 +478,7 @@ function _globalLbTeamDetailHtml(entry) {
 
   const starterRows = lineup.map(({ pos, name: pName, player }) => {
     const era = player
-      ? [player.team, player.decade ? player.decade.replace(/(\d{2})(\d{2})s/, '$2s') : ''].filter(Boolean).join(' ')
+      ? [player.team, player.decade ? player.decade.replace(/^\d{2}(\d{2})-(\d{2})$/, "'$1-$2") : ''].filter(Boolean).join(' ')
       : '';
     return `
     <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
@@ -506,7 +518,6 @@ function _globalLbTeamDetailHtml(entry) {
           <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--primary);margin:0 0 4px">Team Breakdown</p>
           <h3 style="font-size:20px;font-weight:900;margin:0;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</h3>
           <p style="font-size:14px;font-weight:800;color:var(--fg);margin:6px 0 0;font-family:Fira Sans,sans-serif">${wins}–${losses}${entry.champion ? ' · 🏆 Champ' : ''}</p>
-          ${entry.coachName ? `<p style="font-size:12px;color:var(--muted-fg);margin:4px 0 0;font-family:Fira Sans,sans-serif">${esc(entry.coachName)}</p>` : ''}
         </div>
         <button onclick="window.closeGlobalLbTeamDetail()"
           style="background:var(--card2);border:1px solid var(--border);color:var(--muted-fg);border-radius:999px;width:32px;height:32px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</button>
@@ -578,18 +589,18 @@ function _globalLbRowsHtml(entries) {
     const wins       = Number(e.wins)      || 0;
     const losses     = Number(e.losses)    || 0;
     const avgRating  = Number(e.avgRating) || 0;
-    const isPerfect  = wins === 82;
+    const isPerfect  = wins === SEASON_GAMES;
     const rowBg      = isPerfect ? 'background:var(--surface-amber);border-color:var(--amber-border)' : 'background:var(--card3);border-color:var(--border)';
     const medal      = i < 3
       ? `<span style="font-size:18px">${medals[i]}</span>`
       : `<span style="font-size:12px;font-weight:800;color:var(--muted)">#${i + 1}</span>`;
     const name       = esc((e.teamName || 'Untitled Team').slice(0, 30));
-    const winsColor  = isPerfect ? 'var(--amber-strong)' : wins >= 70 ? '#16a34a' : wins >= 50 ? 'var(--primary)' : 'var(--fg)';
+    const winsColor  = isPerfect ? 'var(--amber-strong)' : wins >= 12 ? '#16a34a' : wins >= 9 ? 'var(--primary)' : 'var(--fg)';
     const champBadge = e.champion
       ? `<span style="font-size:10px;font-weight:900;padding:2px 7px;border-radius:999px;background:var(--amber-badge-bg);color:var(--amber-text);border:1px solid var(--amber-border);white-space:nowrap">🏆 CHAMP</span>`
       : '';
     const perfectBadge = isPerfect && !e.champion
-      ? `<span style="font-size:10px;font-weight:900;padding:2px 7px;border-radius:999px;background:var(--amber-badge-bg);color:var(--amber-text);border:1px solid var(--amber-border);white-space:nowrap">82–0</span>`
+      ? `<span style="font-size:10px;font-weight:900;padding:2px 7px;border-radius:999px;background:var(--amber-badge-bg);color:var(--amber-text);border:1px solid var(--amber-border);white-space:nowrap">14–0</span>`
       : '';
     return `
     <div role="button" tabindex="0" data-global-lb-index="${i}"
@@ -607,7 +618,6 @@ function _globalLbRowsHtml(entries) {
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span style="font-weight:900;font-size:15px;color:${winsColor};font-family:Fira Sans,sans-serif">${wins}–${losses}</span>
-          ${e.coachName ? `<span style="font-size:11px;color:var(--muted-fg);font-family:Fira Sans,sans-serif">${esc(e.coachName)}</span>` : ''}
           ${e.era && e.era !== 'all' ? `<span style="font-size:11px;color:var(--muted);font-family:Fira Sans,sans-serif">${esc(e.era)}</span>` : ''}
         </div>
         ${e.starters ? `<p style="font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:2px 0 0;font-family:Fira Sans,sans-serif">${esc(e.starters)}</p>` : ''}
@@ -744,14 +754,18 @@ export function getDailyStatus() {
 const DAILY_STREAK_KEY = 'nba820_dailyStreak';
 const DAILY_STATS_KEY  = 'nba820_dailyStats';
 
-/** Season-win bins for the Wordle-style distribution chart (6 rows). */
+/** Season-win bins for the Wordle-style distribution chart (6 rows).
+ * 14-match scale. Older stats objects may still carry counts under the
+ * pre-reskin 82-game bin keys ('0-39' etc.) — every 14-game result landed
+ * in '0-39', so that history can't be split into these bins; it's simply
+ * not charted (played / win% / streak totals are unaffected). */
 export const DAILY_WIN_BINS = [
-  { key: '0-39',  label: '0–39',  min: 0,  max: 39 },
-  { key: '40-49', label: '40–49', min: 40, max: 49 },
-  { key: '50-59', label: '50–59', min: 50, max: 59 },
-  { key: '60-69', label: '60–69', min: 60, max: 69 },
-  { key: '70-79', label: '70–79', min: 70, max: 79 },
-  { key: '80-82', label: '80–82', min: 80, max: 82 },
+  { key: '0-4',   label: '0–4',   min: 0,  max: 4 },
+  { key: '5-6',   label: '5–6',   min: 5,  max: 6 },
+  { key: '7-8',   label: '7–8',   min: 7,  max: 8 },
+  { key: '9-10',  label: '9–10',  min: 9,  max: 10 },
+  { key: '11-12', label: '11–12', min: 11, max: 12 },
+  { key: '13-14', label: '13–14', min: 13, max: 14 },
 ];
 
 function _emptyDailyDist() {
@@ -761,11 +775,11 @@ function _emptyDailyDist() {
 }
 
 function _binKeyForWins(wins) {
-  const w = Math.max(0, Math.min(82, Number(wins) || 0));
+  const w = Math.max(0, Math.min(SEASON_GAMES, Number(wins) || 0));
   for (const b of DAILY_WIN_BINS) {
     if (w >= b.min && w <= b.max) return b.key;
   }
-  return '0-39';
+  return DAILY_WIN_BINS[0].key;
 }
 
 /** @returns {{ streak: number, lastPassDate: string|null }} consecutive-day challenge passes */
@@ -930,18 +944,18 @@ function _dailyLbRowsHtml(entries) {
     const wins       = Number(e.wins)      || 0;
     const losses     = Number(e.losses)    || 0;
     const avgRating  = Number(e.avgRating) || 0;
-    const isPerfect  = wins === 82;
+    const isPerfect  = wins === SEASON_GAMES;
     const rowBg      = isPerfect ? 'background:var(--surface-amber);border-color:var(--amber-border)' : 'background:var(--card3);border-color:var(--border)';
     const medal      = i < 3
       ? `<span style="font-size:18px">${medals[i]}</span>`
       : `<span style="font-size:12px;font-weight:800;color:var(--muted)">#${i + 1}</span>`;
     const name       = esc((e.teamName || 'Untitled Team').slice(0, 30));
-    const winsColor  = isPerfect ? 'var(--amber-strong)' : wins >= 70 ? '#16a34a' : wins >= 50 ? 'var(--primary)' : 'var(--fg)';
+    const winsColor  = isPerfect ? 'var(--amber-strong)' : wins >= 12 ? '#16a34a' : wins >= 9 ? 'var(--primary)' : 'var(--fg)';
     const champBadge = e.champion
       ? `<span style="font-size:10px;font-weight:900;padding:2px 7px;border-radius:999px;background:var(--amber-badge-bg);color:var(--amber-text);border:1px solid var(--amber-border);white-space:nowrap">🏆 CHAMP</span>`
       : '';
     const perfectBadge = isPerfect && !e.champion
-      ? `<span style="font-size:10px;font-weight:900;padding:2px 7px;border-radius:999px;background:var(--amber-badge-bg);color:var(--amber-text);border:1px solid var(--amber-border);white-space:nowrap">82–0</span>`
+      ? `<span style="font-size:10px;font-weight:900;padding:2px 7px;border-radius:999px;background:var(--amber-badge-bg);color:var(--amber-text);border:1px solid var(--amber-border);white-space:nowrap">14–0</span>`
       : '';
     // Challenge verdict — entries written before the challenge system lack
     // the field entirely and show no badge.
@@ -960,7 +974,6 @@ function _dailyLbRowsHtml(entries) {
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span style="font-weight:900;font-size:15px;color:${winsColor};font-family:Fira Sans,sans-serif">${wins}–${losses}</span>
-          ${e.coachName ? `<span style="font-size:11px;color:var(--muted-fg);font-family:Fira Sans,sans-serif">${esc(e.coachName)}</span>` : ''}
         </div>
         ${e.starters ? `<p style="font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:2px 0 0;font-family:Fira Sans,sans-serif">${esc(e.starters)}</p>` : ''}
       </div>

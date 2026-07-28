@@ -27,7 +27,7 @@ export function availableDecades() {
 
 /**
  * Teams eligible for the current spin. A Daily Challenge that bans
- * franchises outright (e.g. Flyover Hoops: no Lakers/Celtics) removes them
+ * franchises outright (e.g. a "no MI / no CSK" daily rule) removes them
  * from the spin pool entirely — otherwise the seeded wheel can land on a
  * board where every player is off-limits and the round is a dead spin.
  * Same filter for everyone, so the shared deterministic sequence holds.
@@ -87,7 +87,7 @@ export function getAvailablePlayers(team, decade) {
 }
 
 // ── Skip budgets ──────────────────────────────────────────────────────────────
-// Solo/HoopIQ use the shared teamSkips/decadeSkips counters; 1v1 gives each
+// Solo/Ball IQ use the shared teamSkips/decadeSkips counters; 1v1 gives each
 // drafter their own budget so one player can't burn the other's skips.
 
 /** Remaining skips for the active drafter: { team, decade }. */

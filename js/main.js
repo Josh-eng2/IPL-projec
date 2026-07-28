@@ -19,8 +19,8 @@ import { doSpin, hasKnownHashRoute } from './ui/events.js';
 
 /**
  * Cold open — a brand-new visitor never sees a menu. They land mid-draft
- * with a coach auto-assigned and the decade wheel already spinning.
- * Mode, coach, and era choices are introduced from run 2 onward, once the
+ * with the era wheel already spinning.
+ * Mode and era choices are introduced from run 2 onward, once the
  * player can actually evaluate them.
  *
  * The returning-player flag is NOT set here — it's earned when the hook
@@ -46,13 +46,9 @@ async function init() {
       S.mode           = 'solo';
       S.currentPlayer  = 1;
       S.p1             = null;
-      // Always Dhoni — the most legible system for a zero-context player,
-      // and the rigged first GOAT immediately lights up his star meter.
-      // No invisible die roll deciding the first impression.
-      S.coach          = 'dhoni';
       startGame('all');
       S.coldOpen = true;           // set after startGame — it replaces S
-      logAnalyticsEvent('cold_open_start', { coach: S.coach });
+      logAnalyticsEvent('cold_open_start', {});
       render();
       cgLoadingStop();
       doSpin();                    // wheel is already turning when they look up

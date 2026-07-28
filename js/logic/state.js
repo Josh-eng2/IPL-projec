@@ -2,7 +2,7 @@
  * js/logic/state.js — Global Game State & Configuration Constants
  *
  * Exports:
- *   • All static config constants (TEAMS, DECADES, COACHES, TEAM_COLORS, …)
+ *   • All static config constants (TEAMS, DECADES, TEAM_COLORS, …)
  *   • `S`          — the live, mutable game-state object (ES module live binding)
  *   • `startGame`  — resets / initialises S for a new draft session
  *   • `pick`       — tiny array-random-pick utility used across multiple modules
@@ -70,67 +70,6 @@ export const ARCHETYPE_STYLE = {
   'Death Bowler':       { bg: '#dcfce7', text: '#15803d' },
   'Complete Cricketer': { bg: '#ffedd5', text: '#9a3412' },
 };
-
-// Captains replace NBA coaches — each brings a tactical system tied to a
-// real IPL era, mirroring the coach-system bonus structure 1:1.
-export const COACHES = [
-  {
-    id:     'warne',
-    name:   'Shane Warne',
-    era:    '2008-11',
-    system: 'Spin Web',
-    desc:   'Spin-first — Spin Wizard and Lockdown Bowler bonuses amplified; bowling-control penalties negated.',
-    accent: '#4ade80',
-  },
-  {
-    id:     'gambhir',
-    name:   'Gautam Gambhir',
-    era:    '2012-15',
-    system: 'Fearless Cricket',
-    desc:   'Backs young match-winners — Captain Material and X-Factor bonuses amplified ×1.5.',
-    accent: '#0369a1',
-  },
-  {
-    id:     'dhoni',
-    name:   'MS Dhoni',
-    era:    '2012-15',
-    system: 'Ice-Cool Calm',
-    desc:   'Composure under pressure — Chase Master and Clutch bonuses amplified ×1.5; Chasing Jitters penalty negated.',
-    accent: '#f87171',
-  },
-  {
-    id:     'kohli',
-    name:   'Virat Kohli',
-    era:    '2016-19',
-    system: 'Aggressive Intent',
-    desc:   'Star-driven — Explosive Top Order and Six-Hitting Machine bonuses amplified ×1.5; Ego Clash penalty softened to −2%.',
-    accent: '#c084fc',
-  },
-  {
-    id:     'warner',
-    name:   'David Warner',
-    era:    '2020-22',
-    system: 'Boundary Blitz',
-    desc:   'Powerplay-first — Powerplay Specialist and Six-Hitting Machine bonuses amplified ×1.5.',
-    accent: '#60a5fa',
-  },
-  {
-    id:     'rohit',
-    name:   'Rohit Sharma',
-    era:    '2020-22',
-    system: 'Big-Match Temperament',
-    desc:   'Knockout-tested — Death-Over Specialist and New-Ball Specialist bonuses amplified; Death-Overs Panic penalty heightened.',
-    accent: '#fbbf24',
-  },
-  {
-    id:     'pandya',
-    name:   'Hardik Pandya',
-    era:    '2023-25',
-    system: 'Calm Under Fire',
-    desc:   'Balance-first — Complete Cricketer and Team Man bonuses amplified ×1.5; Ego Clash penalty fully negated.',
-    accent: '#34d399',
-  },
-];
 
 // ── Playoff CPU opponents ─────────────────────────────────────────────────────
 // Legendary IPL title-winning squads — used as Dynasty Duel opponents and to
@@ -270,10 +209,9 @@ export let S = {
   currentPlayer:  1,             // 1 or 2 (1v1 only)
   p1:             null,          // snapshot of P1 after sequential draft (old 1v1 flow — kept for compat)
   seriesResult:   null,
-  coach:          null,
   selectedEra:    null,
   // 1v1 alternating draft state (set by startGame1v1)
-  p1Coach: null, p1Era: null, p2Coach: null, p2Era: null,
+  p1Era: null, p2Era: null,
   p1Roster: null, p2Roster: null,
   p1Round: 0, p2Round: 0,
   draftLog: [],
@@ -281,12 +219,11 @@ export let S = {
 
 /**
  * Resets S to a fresh drafting state.
- * Called by the events module when a coach + era have been selected.
+ * Called by the events module when a mode has been selected.
  *
- * @param {string} era  e.g. '1990s' or 'all'
+ * @param {string} era  e.g. '2016-19' or 'all'
  */
 export function startGame(era = 'all') {
-  const coach         = S.coach;         // preserve the coach selected in the previous phase
   const mode          = S.mode;
   const currentPlayer = S.currentPlayer;
   const p1            = S.p1;
@@ -297,10 +234,7 @@ export function startGame(era = 'all') {
   const skipBudget = (mode === 'daily' || mode === 'dynasty-duel') ? 0 : 1;
   S = {
     phase:            'drafting',
-    coach,
-    coachLocked:      false,   // locks on the first spin — commit before you see players
-    coachPickerOpen:  false,
-    eraLocked:        false,   // locks on the first spin — same moment as coach
+    eraLocked:        false,   // locks on the first spin — commit before you see players
     eraPickerOpen:    false,
     mode,
     currentPlayer,
@@ -364,17 +298,17 @@ export function startGame(era = 'all') {
 
 /**
  * Initialises S for a 1v1 or GM vs AI alternating draft.
- * Called after coaches/eras are set on S.
+ * Called after eras are set on S.
  */
 export function startGame1v1() {
-  const { p1Coach, p1Era, p2Coach, p2Era } = S;
+  const { p1Era, p2Era } = S;
   const mode = S.mode === 'gm-ai' ? 'gm-ai' : '1v1';
   const isAi = mode === 'gm-ai';
   S = {
     phase:    'drafting',
     mode,
     currentPlayer: 1,
-    p1Coach, p1Era, p2Coach, p2Era,
+    p1Era, p2Era,
     p1Roster: { OPEN: null, MID: null, WK: null, PACE: null, SPIN: null },
     p2Roster: { OPEN: null, MID: null, WK: null, PACE: null, SPIN: null },
     p1Round:  0,
@@ -382,8 +316,6 @@ export function startGame1v1() {
     draftLog: [],
     eraLocked:     false,
     eraPickerOpen: false,
-    coachLocked:   false,
-    coachPickerOpen: false,
 
     // Shared draft-pool tracking
     gameId:    crypto.randomUUID(),
@@ -417,7 +349,6 @@ export function startGame1v1() {
     seriesRevealedCount: 0,
     p1: null,
     selectedEra: p1Era || 'all',
-    coach: isAi ? p1Coach : null,
     dynastyOpponent: null,
     dynastyDuelResult: null,
   };

@@ -1,5 +1,5 @@
 /* ============================================================
-   css/styles.css — Custom styles & animations for 82-0
+   css/styles.css — Custom styles & animations for 14-0
    (everything that Tailwind's utility classes can't cover)
    ============================================================ */
 
@@ -34,7 +34,7 @@
   --surface-sky:    #f8fbff;
   --surface-muted:  #f8fafc;
   --surface-track:  #eef2ff;
-  /* "Perfect / 82-0" gold accents (leaderboard rows, champ badges) */
+  /* "Perfect / 14-0" gold accents (leaderboard rows, champ badges) */
   --amber-badge-bg: #fef3c7;
   --amber-border:   #fcd34d;
   --amber-text:     #92400e;
@@ -944,26 +944,6 @@ button.draft-roster-slot {
     display: none;
   }
 
-  .draft-coach-chip {
-    flex-shrink: 0;
-  }
-
-  .draft-coach-chip .rounded-xl {
-    padding: 0.3rem 0.5rem !important;
-  }
-
-  .draft-coach-chip .text-xs {
-    font-size: 0.625rem !important;
-  }
-
-  .draft-coach-chip .text-sm {
-    font-size: 0.6875rem !important;
-  }
-
-  .draft-coach-chip .text-\[10px\] {
-    font-size: 0.5625rem !important;
-  }
-
   .draft-slot-machine {
     flex-shrink: 0;
     padding: 0.5rem !important;
@@ -1391,12 +1371,6 @@ button.draft-roster-slot {
 
 .draft-screen__center .draft-round-bar__meta {
   display: none;
-}
-
-.draft-screen__center .draft-coach-chip > button,
-.draft-screen__center .draft-coach-chip > div {
-  padding-top: 0.375rem !important;
-  padding-bottom: 0.375rem !important;
 }
 
 .draft-screen__center .draft-slot-machine {
