@@ -193,7 +193,9 @@ export function getPlayerSeed(wins) {
 export function buildBracket(playerSeed, playerStrength) {
   const cpuSorted = [...CPU_TEAMS].sort((a, b) => b.strength - a.strength);
   const seeds = Array(4).fill(null);
-  seeds[playerSeed - 1] = { name: 'Your Team', strength: playerStrength, isPlayer: true };
+  // Short label on purpose: the bracket's team column is ~5rem wide, and
+  // "Your Team" ellipsised to "Your T…" in every knockout row.
+  seeds[playerSeed - 1] = { name: 'Your XI', strength: playerStrength, isPlayer: true };
 
   let cpuIdx = 0;
   for (let i = 0; i < 4; i++) {
