@@ -784,7 +784,7 @@ function doAiTurn() {
     S.draftBoard       = buildDraftBoard();
   }
 
-  const choice = chooseAiPick(S.draftBoard, S.p2Roster, S.p2Coach);
+  const choice = chooseAiPick(S.draftBoard, S.p2Roster);
   if (!choice) return;
   const pos = bestAiSlot(choice, S.p2Roster);
   if (!pos) return;
@@ -957,7 +957,7 @@ function doSimulate() {
       // crosses UTC midnight mid-sim still belongs to the day it started.
       date: S.dailyDate,
       wins: S.result.wins, losses: S.result.losses,
-      chemScore: Math.round(S.result.chemScore ?? 0),
+      avgRating: Math.round(S.result.avgRating ?? 0),
       champion: false,
       challengeId: ch?.id ?? null,
       passed:      verdict?.pass ?? false,
@@ -1166,7 +1166,7 @@ function buildGlobalScorePayload() {
     coachId:     S.coach       ?? '',
     coachName:   coachObj?.name  ?? '',
     era:         S.selectedEra ?? 'all',
-    chemScore:   Math.round(r.chemScore ?? 0),
+    avgRating:   Math.round(r.avgRating ?? 0),
     avgPopularity: r.avgPopularity ?? 50,
     fansM:       r.fansM ?? 2,
     starters:    POSITIONS.map(p => S.roster[p]?.name || '—').join(', ').slice(0, 100),
@@ -1288,7 +1288,7 @@ function buildDailyScorePayload() {
     champion:    false, // the daily board captures the shared regular-season board only
     coachId:     S.coach       ?? '',
     coachName:   coachObj?.name  ?? '',
-    chemScore:   Math.round(r.chemScore ?? 0),
+    avgRating:   Math.round(r.avgRating ?? 0),
     starters:    POSITIONS.map(p => S.roster[p]?.name || '—').join(', ').slice(0, 100),
     timestampMs: Date.now(),
     // Day's specific challenge — verdict decided at sim time (doSimulate)
@@ -1369,7 +1369,7 @@ function buildResultCardData() {
 
   return {
     wins: r.wins, losses: r.losses, winPct: r.winPct,
-    chemScore: r.chemScore, longestStreak: r.longestStreak,
+    avgRating: r.avgRating, longestStreak: r.longestStreak,
     tierLabel, tierEmoji,
     isChampion: !!S.playoffs?.champion,
     starters,

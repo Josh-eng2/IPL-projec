@@ -1169,7 +1169,7 @@ button.draft-roster-slot {
    renderDrafting() emits this alternate structure only when
    isDesktopDraftLayout() (>=1024px) is true; below that it emits the
    original flat, mobile/tablet markup and none of these classes exist in
-   the DOM. Live Chemistry is a fixed left rail, the vertical Fans meter a
+   the DOM. Live Team Rating is a fixed left rail, the vertical Fans meter a
    fixed right rail, and the normal draft flow sits in a center column —
    all three pinned to the height below the header and scrolling
    independently, so the whole screen fits without a page scrollbar
@@ -1201,12 +1201,12 @@ button.draft-roster-slot {
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(15rem, 1fr) minmax(0, 46rem) minmax(4.5rem, 1fr);
-  grid-template-areas: "chem center fans";
+  grid-template-areas: "rating center fans";
   gap: 1.25rem;
 }
 
-.draft-screen__inner--desktop .draft-chem-dashboard {
-  grid-area: chem;
+.draft-screen__inner--desktop .draft-rating-dashboard {
+  grid-area: rating;
   height: 100%;
   min-height: 0;
   overflow-y: auto;
@@ -1214,11 +1214,11 @@ button.draft-roster-slot {
   flex-direction: column;
 }
 
-/* ── Live stat gauges (Fans + Chemistry) — mobile/tablet drafting screen ──
-   2K-style radial arcs, replacing the old linear Fans bar + Team Chemistry
+/* ── Live stat gauges (Fans + Team Rating) — mobile/tablet drafting screen ──
+   2K-style radial arcs, replacing the old linear Fans bar + Team Rating
    bar below the desktop breakpoint. See renderStatGauges() in js/ui/render.js.
-   Desktop (>=1024px) keeps the linear meter + synergy chips untouched —
-   .draft-chem-dashboard above and .draft-pop-bar-vertical below. */
+   Desktop (>=1024px) keeps the linear meter + roster chips untouched —
+   .draft-rating-dashboard above and .draft-pop-bar-vertical below. */
 .cond {
   font-family: 'Barlow Condensed', 'Fira Sans', ui-sans-serif, system-ui, sans-serif;
 }
@@ -1361,7 +1361,7 @@ button.draft-roster-slot {
     font-size: 0.75rem;
   }
 
-  .draft-chem-report__item {
+  .draft-rating-report__item {
     font-size: 0.875rem;
     padding: 0.625rem 0.875rem;
   }
@@ -1372,7 +1372,7 @@ button.draft-roster-slot {
 }
 
 /* Thicker meter to match the rest of the desktop rail's presence. */
-.draft-screen__inner--desktop .draft-chem-dashboard__meter {
+.draft-screen__inner--desktop .draft-rating-dashboard__meter {
   height: 0.875rem;
 }
 

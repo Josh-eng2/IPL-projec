@@ -15,7 +15,6 @@ import {
   COACHES, ERA_DESC, TEAM_COLORS, ARCHETYPE_STYLE, DECADES, TEAMS, pickCosmetic, SNAKE_ORDER,
   getUtcDateString,
 } from '../logic/state.js';
-import { calculateChemistry, chemTier, chemTierColors }                             from '../logic/chemistry.js';
 import { rosterFull, availableDecades, getLegendCatalog, getSkips } from '../logic/draft.js';
 import { coachSystemProgress, SEASON_GAMES }              from '../logic/simulation.js';
 import { getBracketDisplayState, STAGES, STAGE_LABEL }     from '../logic/playoffs.js';
@@ -37,11 +36,6 @@ export const $app = document.getElementById('app');
 const esc = s => String(s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-
-// ── Chemistry dashboard cache ─────────────────────────────────────────────────
-// Keyed by coach + roster slot order (fixed PG/SG/SF/PF/C order, so this is
-// stable per roster) — recalculates only when the roster or coach changes.
-let _chemCache = { key: null, result: null };
 
 // ── SVG icons ─────────────────────────────────────────────────────────────────
 function iconBall(cls = '') {
@@ -166,6 +160,25 @@ export function ovrColor(rating) {
   if (r >= 92) return '#2563eb'; // blue — star
   if (r >= 85) return '#0f766e'; // teal — solid starter
   return '#64748b';              // slate — role player
+}
+
+/** Word tier for a 0–100 overall — same 97/92/85 cutoffs as ovrColor(), one
+ *  vocabulary for "how good is this XI" wherever it's surfaced (draft gauge,
+ *  results, trophy room, matchups). */
+function ratingTierFromAvg(avg) {
+  if (!avg) return { tier: '', barCol: '#cbd5e1' };
+  return {
+    tier:   avg >= 97 ? 'GOAT Tier' : avg >= 92 ? 'Elite Talent' : avg >= 85 ? 'Quality Starters' : 'Developing Roster',
+    barCol: ovrColor(avg),
+  };
+}
+
+/** Avg roster `overall` for UI — same shape as calcTeamFans(). */
+function calcTeamRating(players) {
+  const list = players.filter(Boolean);
+  const avg  = list.length ? list.reduce((s, p) => s + (p.overall ?? 82), 0) / list.length : 0;
+  const { tier, barCol } = ratingTierFromAvg(avg);
+  return { avg, pct: Math.round(avg), count: list.length, tier, barCol };
 }
 
 // ── Confetti (lazy) ───────────────────────────────────────────────────────────
@@ -834,7 +847,7 @@ function renderDrafting() {
   const full = rosterFull();
 
   if (isDesktopDraftLayout()) {
-    // 3-column app shell: Live Chemistry is a fixed left rail, the vertical
+    // 3-column app shell: Live Team Rating is a fixed left rail, the vertical
     // Fans meter a fixed right rail, and the normal draft flow scrolls on
     // its own in the center — so the whole screen fits in one viewport with
     // no page scrollbar. See .draft-screen--desktop in styles.css.
@@ -843,7 +856,7 @@ function renderDrafting() {
       ${renderHeader(true)}
       <main class="flex flex-col items-center px-4 pt-2 pb-8 draft-screen__main">
         <div class="w-full max-w-2xl draft-screen__inner draft-screen__inner--desktop">
-          ${renderChemDashboard()}
+          ${renderTeamRatingDashboard()}
           <div class="draft-screen__center">
             ${renderColdOpenBanner()}
             ${renderModeDraftBanner()}
@@ -1059,10 +1072,10 @@ function renderRoundBar() {
   </div>`;
 }
 
-// ── Live stat gauges (Fans + Chemistry) — mobile/tablet drafting screen ──────
-// 2K-style radial arcs replacing the old linear Fans bar + Team Chemistry bar
+// ── Live stat gauges (Fans + Team Rating) — mobile/tablet drafting screen ────
+// 2K-style radial arcs replacing the old linear Fans bar + Team Rating bar
 // below the desktop breakpoint (design handoff: "Arena — dark broadcast").
-// Desktop keeps the linear meter + synergy chips (renderChemDashboard /
+// Desktop keeps the linear meter + roster chips (renderTeamRatingDashboard /
 // renderPopularityBarVertical below) untouched.
 
 // Fixed 270° track, start point (21.7,78.3) at 135°, sweeping clockwise to
@@ -1123,50 +1136,35 @@ function renderStatGauges() {
     label: 'Fans', color: fans.barCol,
   });
 
-  let chemGauge;
+  let ratingGauge;
   if (S.mode === 'blind') {
-    // Ball IQ: same reasoning as renderChemDashboard() below — don't leak
-    // natural-position fit through the gauge while the mode is testing memory.
-    chemGauge = renderStatGauge({
-      id: 'chem', icon: '🧪', label: 'Chemistry', locked: true,
+    // Ball IQ hides every stat while drafting — showing average OVR live
+    // would leak team strength through the back door.
+    ratingGauge = renderStatGauge({
+      id: 'rating', icon: '🏏', label: 'Team Rating', locked: true,
       lockedNote: 'Unlocks after you simulate',
     });
   } else {
-    // As-placed slots so this matches the visible roster chips, same as
-    // renderChemDashboard()'s desktop version.
-    const placedPairs = POSITIONS
-      .map(pos => ({ pos, player: S.roster[pos] }))
-      .filter(x => x.player);
-    const starters = placedPairs.map(x => x.player);
+    const starters = POSITIONS.map(pos => S.roster[pos]).filter(Boolean);
 
     if (starters.length === 0) {
-      // Nothing drafted yet — start at 0 like the Fans gauge, instead of
-      // chemTier(0)'s "Very Weak" (a false negative before you've begun).
-      chemGauge = renderStatGauge({
-        id: 'chem', icon: '🧪', pct: 0,
+      // Nothing drafted yet — start at 0 like the Fans gauge.
+      ratingGauge = renderStatGauge({
+        id: 'rating', icon: '🏏', pct: 0,
         value: '—', suffix: '',
-        label: 'Chemistry', color: 'var(--muted-fg)',
+        label: 'Team Rating', color: 'var(--muted-fg)',
       });
     } else {
-      const asPlacedSlots = placedPairs.map(x => x.pos);
-      const rosterKey = 'placed|' + (S.coach || '') + '|' + asPlacedSlots.map((s, i) => s + ':' + starters[i].id).join(',');
-      if (_chemCache.key !== rosterKey) {
-        _chemCache.key    = rosterKey;
-        _chemCache.result = calculateChemistry(starters, S.coach, { asPlacedSlots });
-      }
-      const tier  = chemTier(_chemCache.result.chemScore);
-      const color = chemTierColors(tier.id, isDark()).color;
-      // No raw score digits — chemTier() intentionally hides the 0-100 number
-      // from the UI; the arc's sweep still encodes it visually.
-      chemGauge = renderStatGauge({
-        id: 'chem', icon: '🧪', pct: _chemCache.result.chemScore,
-        value: tier.label, suffix: '',
-        label: 'Chemistry', color,
+      const rating = calcTeamRating(starters);
+      ratingGauge = renderStatGauge({
+        id: 'rating', icon: '🏏', pct: rating.pct,
+        value: `${rating.pct}`, suffix: ' OVR',
+        label: 'Team Rating', color: rating.barCol,
       });
     }
   }
 
-  return `<div class="draft-stat-gauges">${fansGauge}${chemGauge}</div>`;
+  return `<div class="draft-stat-gauges">${fansGauge}${ratingGauge}</div>`;
 }
 
 // Desktop-only vertical fans meter — same calcTeamFans() data as the mobile/
@@ -1370,8 +1368,8 @@ function renderRosterSlot(pos, canPlace) {
   if (p) {
     const fitType  = p.pos === pos ? 'primary' : (p.secondaryPos || []).includes(pos) ? 'flex' : 'place';
     const fitClass  = 'fit-' + fitType;
-    // Match empty-slot + chem language: primary green, flex amber, OOP/versatile
-    // warm amber — never a "bad" red that fights Versatile (+1%) chem lines.
+    // Match empty-slot fit language: primary green, flex amber, out-of-position
+    // warm amber — never a harsh red for a perfectly playable slot.
     const fitColors = { primary: '#16a34a', flex: '#d97706', place: '#c2410c' };
     const fitBorders = { primary: '#86efac', flex: '#fde68a', place: '#fdba74' };
     const fitTops = { primary: '#16a34a', flex: '#d97706', place: '#ea580c' };
@@ -1401,10 +1399,9 @@ function renderRosterSlot(pos, canPlace) {
   const primaryMatch = showFit && canDrop && sp && sp.pos === pos;
   const flexMatch    = showFit && canDrop && sp && !primaryMatch &&
     (sp.secondaryPos || []).includes(pos);
-  // Out-of-position is NOT a bad fit — chemistry.js's optimizeLineup() scores
-  // every slot on a 3-tier scale (primary/flex/oop) and oop still nets a
-  // positive "Versatile (+1%)" synergy line, never a penalty. Amber/neutral
-  // instead of red keeps the roster chip in agreement with chemistry copy.
+  // Out-of-position is NOT a bad fit — a player can still start anywhere,
+  // it's just not their natural slot. Amber/neutral instead of red keeps the
+  // roster chip from reading as a mistake when it isn't one.
   const oopMatch     = showFit && canDrop && sp && !primaryMatch && !flexMatch;
 
   const slotBg     = !canDrop ? 'var(--card3)' : (isDark() ? 'rgba(234,179,8,0.08)' : '#fffbeb');
@@ -1422,72 +1419,56 @@ function renderRosterSlot(pos, canPlace) {
   </button>`;
 }
 
-// ── Live Chemistry Dashboard ──────────────────────────────────────────────────
-function renderChemDashboard() {
-  // Ball IQ: hide archetype / natural-position report lines while drafting —
-  // they leak the answers the mode is testing. Keep the score meter only.
+// ── Live Team Rating Dashboard ─────────────────────────────────────────────────
+function renderTeamRatingDashboard() {
+  // Ball IQ hides every stat while drafting — showing OVR would leak team
+  // strength through the back door. Keep the panel present but empty.
   if (S.mode === 'blind') {
     return `
-  <div class="rounded-xl border border-border bg-card px-4 py-3 card-shadow draft-chem-dashboard">
-    <div class="flex items-center justify-between mb-2 draft-chem-dashboard__head">
-      <p class="text-[10px] font-bold uppercase tracking-widest text-muted-fg">Team Chemistry</p>
+  <div class="rounded-xl border border-border bg-card px-4 py-3 card-shadow draft-rating-dashboard">
+    <div class="flex items-center justify-between mb-2 draft-rating-dashboard__head">
+      <p class="text-[10px] font-bold uppercase tracking-widest text-muted-fg">Team Rating</p>
       <span class="text-[10px] font-bold px-2 py-0.5 rounded-full border border-border bg-card2 text-muted-fg">Ball IQ</span>
     </div>
-    <p class="text-xs text-muted-fg draft-chem-report__empty">Names only — chemistry details unlock after you simulate.</p>
+    <p class="text-xs text-muted-fg draft-rating-report__empty">Names only — team rating unlocks after you simulate.</p>
   </div>`;
   }
 
-  // As-placed slots so Perfect Fit / Versatile lines match the visible roster
-  // chips (sim still uses optimizeLineup inside calculateChemistry by default).
   const placedPairs = POSITIONS
     .map(pos => ({ pos, player: S.roster[pos] }))
     .filter(x => x.player);
-  const starters = placedPairs.map(x => x.player);
 
-  // Before the first pick there's nothing to score yet. calculateChemistry([])
-  // returns bonus 0, which chemTier() reads as "Very Weak" — a false negative
-  // judgment rather than "you haven't started." Show an explicit empty state
-  // instead, matching the Fans gauge (which already starts at 0 with no picks).
-  if (starters.length === 0) {
+  if (placedPairs.length === 0) {
     return `
-  <div class="rounded-xl border border-border bg-card px-4 py-3 card-shadow draft-chem-dashboard">
-    <div class="flex items-center justify-between mb-2 draft-chem-dashboard__head">
-      <p class="text-[10px] font-bold uppercase tracking-widest text-muted-fg">Team Chemistry</p>
+  <div class="rounded-xl border border-border bg-card px-4 py-3 card-shadow draft-rating-dashboard">
+    <div class="flex items-center justify-between mb-2 draft-rating-dashboard__head">
+      <p class="text-[10px] font-bold uppercase tracking-widest text-muted-fg">Team Rating</p>
       <span class="text-[10px] font-bold px-2 py-0.5 rounded-full border border-border bg-card2 text-muted-fg">—</span>
     </div>
-    <div class="h-1.5 rounded-full overflow-hidden bg-border draft-chem-dashboard__meter mb-3">
+    <div class="h-1.5 rounded-full overflow-hidden bg-border draft-rating-dashboard__meter mb-3">
       <div class="h-full rounded-full stat-bar-fill" style="width:0%;background:var(--border)"></div>
     </div>
-    <p class="text-xs text-muted-fg draft-chem-report__empty">No synergies yet — keep drafting.</p>
+    <p class="text-xs text-muted-fg draft-rating-report__empty">No picks yet — keep drafting.</p>
   </div>`;
   }
 
-  const asPlacedSlots = placedPairs.map(x => x.pos);
-  const rosterKey = 'placed|' + (S.coach || '') + '|' + asPlacedSlots.map((s, i) => s + ':' + starters[i].id).join(',');
-  if (_chemCache.key !== rosterKey) {
-    _chemCache.key    = rosterKey;
-    _chemCache.result = calculateChemistry(starters, S.coach, { asPlacedSlots });
-  }
-  const { chemScore, chemReport } = _chemCache.result;
-  const tier = chemTier(chemScore);
-  const { color: scoreColor, bg: scoreBg } = chemTierColors(tier.id, isDark());
+  const rating = calcTeamRating(placedPairs.map(x => x.player));
+  const rows = placedPairs.map(({ pos, player }) => `
+    <div class="flex items-center gap-2 draft-rating-report__item rounded-lg px-2.5 py-1.5 text-xs font-medium border" style="background:var(--card2);border-color:var(--border)">
+      <span class="font-black text-muted-fg w-8 flex-shrink-0">${pos}</span>
+      <span class="flex-1 min-w-0 truncate text-foreground">${player.name}</span>
+      <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0" style="background:${ovrColor(player.overall)}18;color:${ovrColor(player.overall)}">${Math.round(player.overall ?? 0)}</span>
+    </div>`).join('');
   return `
-  <div class="rounded-xl border border-border bg-card px-4 py-3 card-shadow draft-chem-dashboard">
-    <div class="flex items-center justify-between mb-2 draft-chem-dashboard__head">
-      <p class="text-[10px] font-bold uppercase tracking-widest text-muted-fg">Team Chemistry</p>
-      <span class="text-[10px] font-bold px-2 py-0.5 rounded-full border" style="background:${scoreBg};color:${scoreColor};border-color:${scoreColor}30">${tier.label}</span>
+  <div class="rounded-xl border border-border bg-card px-4 py-3 card-shadow draft-rating-dashboard">
+    <div class="flex items-center justify-between mb-2 draft-rating-dashboard__head">
+      <p class="text-[10px] font-bold uppercase tracking-widest text-muted-fg">Team Rating</p>
+      <span class="text-[10px] font-bold px-2 py-0.5 rounded-full border" style="background:${rating.barCol}18;color:${rating.barCol};border-color:${rating.barCol}30">${rating.tier}</span>
     </div>
-    <div class="h-1.5 rounded-full overflow-hidden bg-border draft-chem-dashboard__meter mb-3">
-      <div class="h-full rounded-full stat-bar-fill" style="width:${chemScore}%;background:${scoreColor}"></div>
+    <div class="h-1.5 rounded-full overflow-hidden bg-border draft-rating-dashboard__meter mb-3">
+      <div class="h-full rounded-full stat-bar-fill" style="width:${rating.pct}%;background:${rating.barCol}"></div>
     </div>
-    ${chemReport.length > 0 ? `
-    <div class="flex flex-col gap-1.5 draft-chem-report">
-      ${chemReport.map(item => {
-        const isGood = item.startsWith('🟢');
-        return `<div class="rounded-lg px-2.5 py-1.5 text-xs font-medium border draft-chem-report__item"
-          style="background:${isGood ? 'var(--surface-green)' : 'var(--surface-red)'};color:${isGood ? (isDark() ? '#4ade80' : '#15803d') : (isDark() ? '#f87171' : '#dc2626')};border-color:${isGood ? (isDark() ? 'rgba(74,222,128,0.35)' : '#bbf7d0') : (isDark() ? 'rgba(248,113,113,0.35)' : '#fecaca')}">${item}</div>`;
-      }).join('')}
-    </div>` : `<p class="text-xs text-muted-fg draft-chem-report__empty">No synergies yet — keep drafting.</p>`}
+    <div class="flex flex-col gap-1.5 draft-rating-report">${rows}</div>
   </div>`;
 }
 
@@ -1516,7 +1497,7 @@ function renderSimulateCard() {
     : isDynasty
     ? 'Skip the regular season — go straight at a legendary dynasty.'
     : S.mode === 'defense'
-    ? 'Win probability leans on stocks, boards, and defensive chemistry.'
+    ? 'Win probability leans on wickets, economy, and fielding.'
     : S.mode === 'fans'
     ? 'Star power scores the run — still need ~35 wins to look legit.'
     : 'All 5 spots locked in. Ready to run the season.';
@@ -1536,16 +1517,13 @@ function renderSimulateCard() {
 // ── Results screen ────────────────────────────────────────────────────────────
 // ── Loss autopsy ──────────────────────────────────────────────────────────────
 // Attribution priority order:
-//   1. Balance penalty (≥ 0.03)  — the engine's primary loss driver, takes
-//      precedence over chemistry so the player gets the real fix signal first
-//   2. Chemistry penalty         — secondary structural issue
-//   3. Balance penalty (< 0.03)  — minor but still real
-//   4. Balanced-but-not-elite    — honest catch-all
+//   1. Balance penalty (any amount) — the engine's only loss-diagnosis signal
+//   2. Balanced-but-not-elite       — honest catch-all
 //
 // NOTE: roster-slot placement is deliberately NOT diagnosed. The engine
-// auto-optimizes the floor assignment (chemistry.js optimizeLineup), so where
-// the user parked a player has zero effect on the simulation — blaming an
-// "out of position" placement would be advice that changes nothing.
+// auto-optimizes the floor assignment, so where the user parked a player has
+// zero effect on the simulation — blaming an "out of position" placement
+// would be advice that changes nothing.
 //
 // The engine packages `S.result.lossDiagnosis` with position-aware culprit
 // selection. This function renders that diagnosis verbatim — no re-derivation.
@@ -1554,36 +1532,10 @@ export function computeAutopsy() {
 
   const d = S.result.lossDiagnosis;
 
-  // ── 1. Significant balance penalty (≥ 0.03 strength units) ────────────────
-  // This is the engine's primary loss mechanism. It fires before chemistry so
-  // players get the real fix signal, not a secondary structural note.
-  if (d && d.penaltyAmount >= 0.03) return _renderBalanceDiagnosis(d);
-
-  // ── 2. Chemistry penalty ───────────────────────────────────────────────────
-  const chemPenalty = (S.result.chemReport || []).find(l => l.startsWith('🔴'));
-  if (chemPenalty) {
-    // A single archetype gap (e.g. no playmaker) can coexist with an
-    // otherwise-elite chemistry score — positional-fit bonuses dominate the
-    // 0-100 scale, so "Perfect"/"Very Strong" up top and a 🔴 penalty here
-    // are both correct, just about different things. Reusing the word
-    // "chemistry" for both used to read as a flat contradiction; name the
-    // gap without disputing the badge once the score is already high.
-    const tier = chemTier(S.result.chemScore);
-    const eliteOverall = tier.id === 'perfect' || tier.id === 'veryStrong';
-    return {
-      icon:   '🧪',
-      title:  eliteOverall ? 'One gap still cost you games' : 'Your chemistry sprung a leak',
-      detail: (eliteOverall
-        ? `Your starting five's chemistry grades out ${tier.label} overall — but this one gap let opponents exploit it all season: `
-        : '') + chemPenalty.replace('🔴', '').trim(),
-      fix:    'One roster change removes this penalty — check the Team Chemistry Report below.',
-    };
-  }
-
-  // ── 3. Minor balance penalty (> 0 but < 0.03) ─────────────────────────────
+  // ── 1. Balance penalty ─────────────────────────────────────────────────────
   if (d && d.penaltyAmount > 0) return _renderBalanceDiagnosis(d);
 
-  // ── 4. Balanced but not elite anywhere ────────────────────────────────────
+  // ── 2. Balanced but not elite anywhere ────────────────────────────────────
   return {
     icon:   '📊',
     title:  'No single flaw — just not championship-caliber yet',
@@ -2009,35 +1961,8 @@ function renderResults() {
     </div>`;
   };
 
-  const chemReportHtml = r.chemReport && r.chemReport.length > 0
-    ? r.chemReport.map(item => {
-        const isGood = item.startsWith('🟢');
-        return `<div class="rounded-lg px-3 py-2 text-sm font-medium border"
-          style="background:${isGood ? 'var(--surface-green)' : 'var(--surface-red)'};border-color:${isGood ? (isDark() ? 'rgba(74,222,128,0.35)' : '#bbf7d0') : (isDark() ? 'rgba(248,113,113,0.35)' : '#fecaca')};color:${isGood ? (isDark() ? '#4ade80' : '#15803d') : (isDark() ? '#f87171' : '#dc2626')}">${item}</div>`;
-      }).join('')
-    : `<p class="text-sm text-muted-fg py-1">No synergies or penalties — balanced roster.</p>`;
-
   // Hoisted once — autopsy for imperfect seasons; congrats card uses isPerfect inline.
   const autopsy = !isPerfect ? computeAutopsy() : null;
-
-  const chemScoreBadge = r.chemScore !== undefined ? (() => {
-    const tier = chemTier(r.chemScore);
-    const { color: scColor, bg: scBg } = chemTierColors(tier.id, isDark());
-    return `<span class="text-xs font-bold px-2 py-0.5 rounded-full border" style="background:${scBg};color:${scColor};border-color:${scColor}30">${tier.label}</span>`;
-  })() : '';
-
-  // Surfaced next to the headline Team OVR chip below — OVR alone is a poor
-  // predictor of the record (fit/archetype synergy swings wins far more than
-  // raw overall), so the fit-adjusted Chemistry tier sits right beside it
-  // instead of only appearing further down in the Team Chemistry Report.
-  const chemTopChip = r.chemScore !== undefined ? (() => {
-    const tier = chemTier(r.chemScore);
-    const { color: scColor, bg: scBg } = chemTierColors(tier.id, isDark());
-    return `<span class="inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-1 rounded-full border"
-      style="background:${scBg};border-color:${scColor}40;color:${scColor}">
-      🧪 Chemistry: ${tier.label}
-    </span>`;
-  })() : '';
 
   return `
   <div class="flex flex-col min-h-screen main-gradient">
@@ -2060,7 +1985,6 @@ function renderResults() {
               style="background:${ovrColor(teamOvr)}12;border-color:${ovrColor(teamOvr)}40;color:${ovrColor(teamOvr)}">
               🏏 Team OVR ${teamOvr}${ratingImpactLabel}
             </span>
-            ${chemTopChip}
             ${r.longestStreak >= 5 ? `<span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border" style="background:#fef2f2;border-color:#fecaca;color:#dc2626">🔥 ${r.longestStreak}-game win streak</span>` : ''}
             <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border border-border bg-slate-50 text-slate-600">
               🌍 Fans: ${Math.round(teamFans.sum)}M
@@ -2128,7 +2052,7 @@ function renderResults() {
               <span class="text-2xl flex-shrink-0">🏆</span>
               <div class="min-w-0 flex-1">
                 <p class="text-sm font-black mb-0.5" style="color:${isDark() ? '#fcd34d' : '#92400e'}">You went undefeated!</p>
-                <p class="text-xs leading-relaxed" style="color:${isDark() ? '#fde68a' : '#b45309'}">No losses to dissect — you drafted an all-time XI, nailed the chemistry, and ran the table. Few IPL sides have ever gone unbeaten through the league stage. Now take the #1 seed into the playoffs and finish the job.</p>
+                <p class="text-xs leading-relaxed" style="color:${isDark() ? '#fde68a' : '#b45309'}">No losses to dissect — you drafted an all-time XI, stacked the roster, and ran the table. Few IPL sides have ever gone unbeaten through the league stage. Now take the #1 seed into the playoffs and finish the job.</p>
                 <p class="text-xs font-bold mt-2" style="color:${isDark() ? '#fbbf24' : '#d97706'}">🎉 Immortality is one playoff run away.</p>
               </div>
             </div>
@@ -2139,13 +2063,6 @@ function renderResults() {
         ${renderDailyResultBanner()}
         ${renderDailySubmitCard()}
 
-        <div class="rounded-2xl border border-border bg-white p-4 card-shadow">
-          <div class="flex items-center justify-between mb-3">
-            <p class="text-xs font-bold uppercase tracking-widest text-muted-fg">Team Chemistry Report</p>
-            ${chemScoreBadge}
-          </div>
-          <div class="flex flex-col gap-2">${chemReportHtml}</div>
-        </div>
         <!-- ── Fans card ───────────────────────────────────────────────── -->
         <div class="rounded-2xl border border-border bg-white p-4 card-shadow">
           <div class="flex items-center justify-between mb-3">
@@ -2608,8 +2525,8 @@ function renderTrophyRoom() {
           </div>` : ''}
         </div>
         <div class="flex items-center justify-between border-t ${isPerfect ? 'border-amber-200' : 'border-border'} pt-2.5">
-          <p class="text-xs text-muted-fg">Team Chemistry</p>
-          <p class="text-xs font-bold ${isPerfect ? 'text-amber-600' : 'text-primary'}">${chemTier(t.chemScore).label}</p>
+          <p class="text-xs text-muted-fg">Team Rating</p>
+          <p class="text-xs font-bold ${isPerfect ? 'text-amber-600' : 'text-primary'}">${ratingTierFromAvg(t.avgRating).tier}</p>
         </div>
       </div>`;
   }).join('');
@@ -2701,10 +2618,9 @@ function renderSeriesResult() {
     </div>`;
   }).join('');
 
-  const chemBadge = (chemScore) => {
-    const tier = chemTier(chemScore);
-    const { color: c, bg } = chemTierColors(tier.id, false);
-    return `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full border" style="color:${c};background:${bg};border-color:${c}30">${tier.label}</span>`;
+  const ratingBadge = (avgRating) => {
+    const r = ratingTierFromAvg(avgRating);
+    return `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full border" style="color:${r.barCol};background:${r.barCol}18;border-color:${r.barCol}30">${r.tier}</span>`;
   };
 
   // Fire confetti for the winner — once per series, not on every re-render
@@ -2758,7 +2674,7 @@ function renderSeriesResult() {
           <div class="rounded-2xl border p-4 card-shadow" style="border-color:#bfdbfe;background:var(--surface-sky)">
             <div class="flex items-center justify-between mb-3">
               <p class="text-xs font-bold uppercase tracking-widest" style="color:#2563eb">${labels.p1}</p>
-              ${chemBadge(p1s.chemScore)}
+              ${ratingBadge(p1s.avgRating)}
             </div>
             ${p1Coach ? `<p class="text-[10px] text-muted-fg mb-2 font-medium">Captain: ${p1Coach.name}</p>` : ''}
             <p class="text-[10px] font-bold uppercase tracking-wider text-muted-fg/60 mb-1">Starting 5</p>
@@ -2767,7 +2683,7 @@ function renderSeriesResult() {
           <div class="rounded-2xl border p-4 card-shadow" style="border-color:#fde68a;background:var(--surface-cream)">
             <div class="flex items-center justify-between mb-3">
               <p class="text-xs font-bold uppercase tracking-widest" style="color:#d97706">${labels.p2}</p>
-              ${chemBadge(p2s.chemScore)}
+              ${ratingBadge(p2s.avgRating)}
             </div>
             ${p2Coach ? `<p class="text-[10px] text-muted-fg mb-2 font-medium">Captain: ${p2Coach.name}</p>` : ''}
             <p class="text-[10px] font-bold uppercase tracking-wider text-muted-fg/60 mb-1">Starting 5</p>

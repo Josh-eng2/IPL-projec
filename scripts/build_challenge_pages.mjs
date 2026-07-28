@@ -155,7 +155,7 @@ function ruleFacts(ch) {
   }
   if (p.starterRuns != null) facts.push([`Batting target`, `one starter must average ${p.starterRuns}+ runs per match`]);
   if (p.teamWkts != null)    facts.push([`Bowling target`, `your bowlers must combine for ${p.teamWkts}+ wickets per match`]);
-  if (p.minChem != null)    facts.push([`Chemistry target`, `reach Perfect Team Chemistry (${p.minChem}+)`]);
+  if (p.minRating != null)  facts.push([`Rating target`, `average ${p.minRating}+ Team Rating across your five starters`]);
   if (p.minStreak != null)  facts.push([`Streak target`, `a ${p.minStreak}-match win streak at some point in the season`]);
   if (p.minWins != null)    facts.push([`Win floor`, `${p.minWins} of ${SEASON_GAMES} matches`]);
   return facts;
@@ -165,15 +165,15 @@ function ruleFacts(ch) {
 const STRATEGY = {
   'inaugural-era': 'The 2008-11 era is a shallower pool than later years, so the constraint bites harder than it looks. Lock down a genuine strike bowler early — this window is stacked with batters and short on death-overs specialists.',
   'impact-era': 'The 2023-25 pool skews toward explosive top-order batting. Spacing the innings is the scarce resource: get a genuine anchor in before you spend picks on a second power hitter, or the innings collapses in the sim.',
-  'old-guard': 'The 2008-15 window puts up huge top-order numbers but is thin on frontline strike bowlers by modern standards. Because the win floor here is the lowest of any constraint (8), you can afford to draft for chemistry over raw stats.',
+  'old-guard': 'The 2008-15 window puts up huge top-order numbers but is thin on frontline strike bowlers by modern standards. Because the win floor here is the lowest of any constraint (8), you can afford to prioritize a balanced XI over chasing the single highest-rated player every round.',
   'new-gen': 'The 2020-25 pool is batting-rich and death-bowling-poor. Take the best available bowler early — by the later rounds you will be choosing between batters.',
-  'domestic-talent': 'This is the hardest constraint in the catalog, because fan following and quality correlate. Spend most of the budget on one genuinely good starter and fill the other four from the cheapest end of the board. Chemistry matters more here than anywhere else: a cheap XI that fits together beats a cheap XI of mismatched parts.',
+  'domestic-talent': 'This is the hardest constraint in the catalog, because fan following and quality correlate. Spend most of the budget on one genuinely good starter and fill the other four from the cheapest end of the board. Balance matters more here than anywhere else: a cheap XI spread evenly across all five stat categories beats a cheap XI that is lopsided.',
   'no-big-two': 'Losing Mumbai Indians and Chennai Super Kings removes more all-time title-winning talent than any other two franchises, and the win floor is a steep 10. Target the deep non-banned dynasties — RCB, KKR, and Sunrisers all carry multiple eras.',
-  'win-11': 'No draft restriction at all, so this is purely a roster-quality test. Take the highest-rated player available every round and let chemistry break ties.',
-  'win-12': 'Only a handful of real IPL sides have ever finished a league stage 12-2 or better. You need elite talent *and* clean chemistry — a five-superstar XI that clashes will land a couple of wins short. Match your captain to the XI you actually drafted, not the one you planned.',
+  'win-11': 'No draft restriction at all, so this is purely a roster-quality test. Take the highest-rated player available every round and let position need break ties.',
+  'win-12': 'Only a handful of real IPL sides have ever finished a league stage 12-2 or better. You need elite talent *and* a balanced XI — a five-superstar lineup that is thin in one stat category will land a couple of wins short. Match your captain to the XI you actually drafted, not the one you planned.',
   'boundary-machine': 'You need one starter averaging 42+ runs, which means drafting a genuine number-one batter early rather than spreading talent evenly. Everything after round one should support that player, not compete with them for the strike.',
   'strike-force': '5+ combined wickets per match is a lot, so you effectively need two genuine strike bowlers, not one. Pace and spin options tagged Death Bowler or Strike Bowler carry the highest wicket rates in the database.',
-  'chemistry-class': 'The only challenge where XI fit *is* the objective. Spread across eras, pair a strike bowler with power hitters, include a true anchor, and pick the captain whose system matches what you drafted.',
+  'all-star-xi': 'The only challenge where raw talent *is* the objective — averaging 92+ across all five starters is a top-quartile bar at every position. Do not spend a pick on a lovable role player; if a slot\'s best available is not elite, use a skip and wait for the next spin. Wicketkeeper and Pace have the deepest elite pools if the board gets tight.',
   'wire-to-wire': 'A 10-match streak is about consistency rather than peak talent — avoid an XI with one superstar and four weak links, since the sim punishes thin rosters over a full season.',
   'build-around-kohli': 'Kohli gives you dominant middle-order run-scoring but the other four picks should lean toward bowling depth and a genuine finisher. Do not draft a second ball-dominant Anchor.',
   'build-around-dhoni': 'Dhoni covers the keeper slot and closes out chases, which frees you to draft top-order power and a strike bowler rather than another finisher.',
