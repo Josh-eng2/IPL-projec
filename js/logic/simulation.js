@@ -6,13 +6,14 @@
  *
  * Exports:
  *   simulateSeason(starters, profile?)  → full result object
- *   simulateSeries(playerStr, oppStr) → best-of-7 series result object
+ *   simulateHeadToHeadSeries(p1Starters, p2Starters) → best-of-7 between two XIs
  *   simulateDynastySeries(playerSeason, opponent) → head-to-head shaped series result
+ *   simulateMatch(teamStr, oppStr) → single knockout match (playoffs)
  */
 
 import { DB }                  from '../data/players.js';
 import { TEAMS, pickCosmetic, S } from '../logic/state.js';
-import { eraFactor, eraAdjustedStat, eraAdjustedLine, decadeFromBucketKey } from '../logic/era.js';
+import { eraAdjustedStat, eraAdjustedLine, decadeFromBucketKey } from '../logic/era.js';
 import { getModeConfig }       from '../logic/modes.js';
 
 // ── Season length ─────────────────────────────────────────────────────────────
@@ -160,9 +161,10 @@ function buildLossDiagnosis(starters, weakestStat, balancePenalty, sRatio, START
 }
 
 // ── Per-player season stat lines ──────────────────────────────────────────────
+// All five are PER-MATCH figures. Two of them (sr, econ) are rates, so there is
+// deliberately no "season total" companion — multiplying a strike rate by 14
+// produces a meaningless number, and nothing in the UI ever wanted one.
 const PLAYER_STAT_KEYS = ['runs', 'sr', 'wkts', 'econ', 'field'];
-// per-match key → season-total key
-const SEASON_TOTAL_KEY = { runs: 'totalRuns', sr: 'srTotal', wkts: 'totalWkts', econ: 'econTotal', field: 'fieldTotal' };
 
 /** Standard-normal sample via Box–Muller. */
 function gaussian() {
@@ -190,9 +192,7 @@ function simulatePlayerStats(starters, winPct) {
     const line = { id: p.id, name: p.name, pos: p.pos, gp };
     for (const k of PLAYER_STAT_KEYS) {
       const perGame = Math.max(0, (p[k] || 0) * form * teamFactor);
-      const rounded = Math.round(perGame * 10) / 10;
-      line[k] = rounded;
-      line[SEASON_TOTAL_KEY[k]] = Math.round(rounded * gp);
+      line[k] = Math.round(perGame * 10) / 10;
     }
     return line;
   });
@@ -254,18 +254,16 @@ export function simulateSeason(starters, profile = null) {
     field:sTotals.field/ STARTER_BASE.field,
   };
 
-  const ratio = sRatio;
-
   const weights = simProfile === 'bowling'
     ? { runs: 0.10, sr: 0.10, wkts: 0.30, econ: 0.25, field: 0.25 }
     : { runs: 0.35, sr: 0.20, wkts: 0.20, econ: 0.15, field: 0.10 };
 
   const strength =
-    ratio.runs * weights.runs +
-    ratio.sr   * weights.sr   +
-    ratio.wkts * weights.wkts +
-    ratio.econ * weights.econ +
-    ratio.field* weights.field;
+    sRatio.runs * weights.runs +
+    sRatio.sr   * weights.sr   +
+    sRatio.wkts * weights.wkts +
+    sRatio.econ * weights.econ +
+    sRatio.field* weights.field;
 
   const diagEntries = simProfile === 'bowling'
     ? Object.entries(sRatio).filter(([k]) => k === 'wkts' || k === 'econ' || k === 'field')
@@ -317,10 +315,7 @@ export function simulateSeason(starters, profile = null) {
     if (won) wins++;
     games.push({ won });
   }
-  wins = Math.max(0, Math.min(SEASON_GAMES, wins));
   decorateSeasonGames(games, winPct);
-
-  const totals = { ...sTotals };
 
   const { playerStats, statLeaders, simTotals } = simulatePlayerStats(starters, winPct);
 
@@ -332,12 +327,11 @@ export function simulateSeason(starters, profile = null) {
     winPct:     +(winPct * 100).toFixed(1),
     strength:   +adjustedStrength.toFixed(3),
     baseStrength: +baseStrength.toFixed(3),
-    totals, ratio, sTotals,
+    sTotals,
     balancePenalty: +balancePenalty.toFixed(4), weakestStat, lossDiagnosis,
     avgPopularity: +avgPop.toFixed(1),
     popEloDelta,
     avgRating:  +avgRating.toFixed(1),
-    ratingMul:  +ratingMul.toFixed(4),
     ratingEloDelta,
     playerStats, statLeaders, simTotals,
     fansM,
@@ -454,25 +448,6 @@ export function simulateDynastySeries(playerSeason, opponent) {
   };
 
   return { p1Season: playerSeason, p2Season, games, p1Wins, p2Wins, winner, series, opponent };
-}
-
-/**
- * Simulates a best-of-7 series (used by the 1v1 / GM vs AI modes).
- *
- * @param {number} playerStrength
- * @param {number} opponentStrength
- * @returns {{ playerWins: number, oppWins: number, games: string[], won: boolean }}
- */
-export function simulateSeries(playerStrength, opponentStrength) {
-  const pWin = 1 / (1 + Math.exp(-6 * (playerStrength - opponentStrength)));
-  let playerWins = 0, oppWins = 0;
-  const games = [];
-  while (playerWins < 4 && oppWins < 4) {
-    const won = Math.random() < pWin;
-    if (won) playerWins++; else oppWins++;
-    games.push(won ? 'W' : 'L');
-  }
-  return { playerWins, oppWins, games, won: playerWins === 4 };
 }
 
 /**

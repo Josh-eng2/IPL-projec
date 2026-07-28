@@ -6,7 +6,6 @@
  *   $app            — the #app DOM node (shared with events.js)
  *   archetypeBadge  — archetype pill HTML helper
  *   fmtDecadeShort  — "2016-19" → "'16-19"
- *   fmtPlayerLine   — "Kohli (RCB '16-19)"
  *   showToast       — ephemeral bottom toast notification
  */
 
@@ -144,12 +143,6 @@ export function fmtDecadeShort(decade) {
   if (!decade) return '';
   const m = decade.match(/^(\d{4})-(\d{2})$/);
   return m ? `'${m[1].slice(2)}-${m[2]}` : decade;
-}
-
-export function fmtPlayerLine(p) {
-  if (!p) return '—';
-  const era = [p.team, p.decade ? fmtDecadeShort(p.decade) : ''].filter(Boolean).join(' ');
-  return era ? `${p.name} (${era})` : p.name;
 }
 
 // ── Team rating (0–100 overall) display helper ────────────────────────────────
@@ -2039,7 +2032,7 @@ function renderResults() {
         <div class="rounded-2xl border border-border bg-white p-4 card-shadow">
           <p class="text-xs font-bold uppercase tracking-widest text-muted-fg mb-4">Team Statistics</p>
           <div class="flex flex-col gap-3">
-            ${(() => { const t = r.simTotals || r.totals; return `
+            ${(() => { const t = r.simTotals; return `
             ${statBar('runs', 'Runs Combined',     t.runs)}
             ${statBar('sr',   'Strike Rate Combined', t.sr)}
             ${statBar('wkts', 'Wickets Combined',   t.wkts)}
@@ -2221,7 +2214,7 @@ function renderPlayoffBracketTree(po) {
               topSeed:    (row.stage === 'qualifier1' || row.stage === 'eliminator') ? seedFor(row.teamA) : null,
               bottomSeed: (row.stage === 'qualifier1' || row.stage === 'eliminator') ? seedFor(row.teamB) : null,
               topScore: row.scoreA, bottomScore: row.scoreB,
-              topWon: row.complete ? (row.winner === row.teamA) : (row.live ? null : null),
+              topWon: row.complete ? (row.winner === row.teamA) : null,
               live: row.live,
             })}
           </div>
@@ -2601,7 +2594,7 @@ function renderSeriesResult() {
               ${ratingBadge(p1s.avgRating)}
             </div>
             <p class="text-[10px] font-bold uppercase tracking-wider text-muted-fg/60 mb-1">Starting 5</p>
-            ${rosterMini(S.p1Roster || S.p1?.roster || {}, ['OPEN','MID','WK','PACE','SPIN'])}
+            ${rosterMini(S.p1Roster || {}, POSITIONS)}
           </div>
           <div class="rounded-2xl border p-4 card-shadow" style="border-color:#fde68a;background:var(--surface-cream)">
             <div class="flex items-center justify-between mb-3">
@@ -2611,7 +2604,7 @@ function renderSeriesResult() {
             <p class="text-[10px] font-bold uppercase tracking-wider text-muted-fg/60 mb-1">Starting 5</p>
             ${S.mode === 'dynasty-duel'
               ? `<p class="text-xs text-muted-fg py-2">Legendary ${labels.p2} — strength ${p2s.strength.toFixed(2)}</p>`
-              : rosterMini(S.p2Roster || S.roster, ['OPEN','MID','WK','PACE','SPIN'])}
+              : rosterMini(S.p2Roster || S.roster, POSITIONS)}
           </div>
         </div>
 
