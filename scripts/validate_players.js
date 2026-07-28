@@ -17,20 +17,20 @@ const path = require('path');
 const SRC = path.join(__dirname, '..', 'players.json');
 
 const ARCHETYPES = new Set([
-  'Playmaker', 'Sharpshooter', 'Lockdown Defender',
-  'Slasher', 'Paint Beast', 'Two-Way Star',
+  'Anchor', 'Power Hitter', 'Finisher',
+  'Death Bowler', 'Strike Bowler', 'Complete Cricketer',
 ]);
-const POSITIONS = new Set(['PG', 'SG', 'SF', 'PF', 'C']);
+const POSITIONS = new Set(['OPEN', 'MID', 'WK', 'PACE', 'SPIN']);
 
 const STAT_BOUNDS = {
-  ppg: [0, 50],
-  rpg: [0, 30],
-  apg: [0, 20],
-  spg: [0, 6],
-  bpg: [0, 8],
+  runs: [0, 60],
+  sr:   [0, 220],
+  wkts: [0, 3],
+  econ: [0, 7],
+  field:[0, 1.5],
 };
 
-const BUCKET_KEY_RE = /^[A-Za-z]+_(19[6-9]0s|20[0-2]0s)$/;
+const BUCKET_KEY_RE = /^[A-Za-z ]+_(20[0-2][0-9]-[0-9]{2})$/;
 
 function main() {
   let raw;
@@ -95,8 +95,8 @@ function main() {
 
       if (!Array.isArray(p.traits)) {
         errors.push(`${where}: "traits" is not an array`);
-      } else if (p.traits.length !== 2 && p.traits.length !== 3) {
-        errors.push(`${where}: "traits" has ${p.traits.length} entries (must be 2 or 3)`);
+      } else if (p.traits.length < 1 || p.traits.length > 3) {
+        errors.push(`${where}: "traits" has ${p.traits.length} entries (must be 1-3)`);
       } else if (p.traits.some(t => typeof t !== 'string' || !t.trim())) {
         errors.push(`${where}: "traits" contains an empty/non-string entry`);
       }

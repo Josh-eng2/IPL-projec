@@ -1,5 +1,5 @@
 /**
- * js/logic/positions.js — Dynamic Secondary Position Scanner
+ * js/logic/positions.js — Dynamic Secondary Role Scanner
  *
  * Runs once after loadDatabase() populates DB.
  * Mutates player objects in-memory only — players.js is never touched.
@@ -9,23 +9,19 @@
  *
  * Rule Categories
  * ───────────────
- * PG  Combo Guard       : high scorer / shooter / slasher       → SG
- * SG  Lead Guard        : high assist / Playmaker arch           → PG
- * SG  Versatile Wing    : strong rebounder / lockdown / two-way  → SF
- * SF  Point Forward     : high assist / Playmaker arch           → PG
- * SF  Swingman          : high scoring, low rebounding wing      → SG
- * SF  Power-Forward role: interior rebounder / shot-blocker      → PF
- * PF  Point Forward     : high assist / Playmaker arch           → PG
- * PF  Stretch Four      : perimeter-shooting big                 → SF
- * PF  Interior Anchor   : dominant rebounder / shot-blocker      → C
- * C   Mobile Center     : skilled / Floor Spacer / shooter       → PF
- * C   Dominant Center   : elite rim protector / rebounder        → PF
+ * OPEN  Power Opener     : explosive strike rate / Power Hitter archetype  → MID
+ * MID   Top-Order Anchor : high-volume run scorer / Anchor archetype       → OPEN
+ * MID   Keeping Cover     : fielding impact / Complete Cricketer archetype  → WK
+ * WK    Floater           : blazing SR, lower runs — pinch-hits up the order → MID
+ * PACE  Containment Arm   : elite economy / Strike Bowler archetype        → SPIN
+ * PACE  All-Round Finisher: bat-and-ball threat / Complete Cricketer        → MID
+ * SPIN  Enforcer          : elite wicket-taking / Death Bowler archetype    → PACE
  */
 
 import { DB } from '../data/players.js';
 
-// Positional rank used for distance-sorting secondary positions
-const POS_RANK = { PG: 0, SG: 1, SF: 2, PF: 3, C: 4 };
+// Positional rank used for distance-sorting secondary slots
+const POS_RANK = { OPEN: 0, MID: 1, WK: 2, PACE: 3, SPIN: 4 };
 
 /**
  * Appends a `secondaryPos` array to every player object in DB.
@@ -41,67 +37,55 @@ export function applySecondaryPositions() {
 }
 
 /**
- * Returns a sorted secondary-position array for a single player.
- * Positions closest to the player's natural slot appear first.
+ * Returns a sorted secondary-slot array for a single player.
+ * Slots closest to the player's natural role appear first.
  *
  * @param {object} p  Player object from DB
  * @returns {string[]}
  */
 function deriveSecondary(p) {
-  const arch   = p.archetype || '';
-  const traits = Array.isArray(p.traits) ? p.traits : [];
-  const sec    = new Set();
+  const arch = p.archetype || '';
+  const sec  = new Set();
 
   switch (p.pos) {
 
-    // ── Point Guard ───────────────────────────────────────────────────────
-    case 'PG':
-      // Combo Guard: scoring burst / shooting / slashing style → SG
-      if (p.ppg > 22.0 || arch === 'Sharpshooter' || arch === 'Slasher') sec.add('SG');
+    // ── Opening Batter ────────────────────────────────────────────────────
+    case 'OPEN':
+      // Power Opener: blistering strike rate translates straight to the
+      // middle order as a finisher-in-waiting → MID
+      if (p.sr > 155 || arch === 'Power Hitter' || arch === 'Finisher') sec.add('MID');
       break;
 
-    // ── Shooting Guard ────────────────────────────────────────────────────
-    case 'SG':
-      // Lead Guard: runs offense, high assist floor → PG
-      if (p.apg > 5.0 || arch === 'Playmaker') sec.add('PG');
-      // Versatile Wing: rebounder, lockdown, or two-way impact player → SF
-      if (p.rpg > 6.0 || arch === 'Lockdown Defender' || arch === 'Two-Way Star') sec.add('SF');
+    // ── Middle-Order Batter ───────────────────────────────────────────────
+    case 'MID':
+      // Top-Order Anchor: builds a full innings, translates to opening → OPEN
+      if (p.runs > 40 || arch === 'Anchor') sec.add('OPEN');
+      // Keeping Cover: strong fielding hands, can slot in behind the stumps → WK
+      if (p.field > 0.8 || arch === 'Complete Cricketer') sec.add('WK');
       break;
 
-    // ── Small Forward ─────────────────────────────────────────────────────
-    case 'SF':
-      // Point Forward: orchestrates offense with elite playmaking → PG
-      if (p.apg > 5.5 || arch === 'Playmaker') sec.add('PG');
-      // Swingman: perimeter scorer without interior dominance → SG
-      if (p.ppg > 20.0 && p.rpg < 6.0) sec.add('SG');
-      // Power Forward role: interior rebounder / shot-blocker / Paint Beast → PF
-      if (p.rpg > 7.5 || p.bpg > 1.2 || arch === 'Paint Beast') sec.add('PF');
+    // ── Wicketkeeper-Batter ───────────────────────────────────────────────
+    case 'WK':
+      // Floater: high strike rate, lower volume — a pinch-hitter up the order → MID
+      if (p.sr > 150 || arch === 'Finisher') sec.add('MID');
       break;
 
-    // ── Power Forward ─────────────────────────────────────────────────────
-    case 'PF':
-      // Point Forward: facilitating big with elite assist numbers → PG
-      if (p.apg > 5.5 || arch === 'Playmaker') sec.add('PG');
-      // Stretch Four: floor-spacing big who operates on the perimeter → SF
-      if (arch === 'Sharpshooter') sec.add('SF');
-      // Interior Anchor: dominant rebounder / shot-blocker / Paint Beast → C
-      if (p.rpg > 10.0 || p.bpg > 1.5 || arch === 'Paint Beast') sec.add('C');
+    // ── Pace Bowler ───────────────────────────────────────────────────────
+    case 'PACE':
+      // Containment Arm: elite economy reads like a spinner's control → SPIN
+      if (p.econ > 6.5 || arch === 'Strike Bowler') sec.add('SPIN');
+      // All-Round Finisher: genuine bat-and-ball threat → MID
+      if (p.runs > 20 || arch === 'Complete Cricketer') sec.add('MID');
       break;
 
-    // ── Center ────────────────────────────────────────────────────────────
-    case 'C':
-      // Mobile / skilled center who can step out → PF
-      // Covers both the Floor Spacer / perimeter skill case AND
-      // the dominant rim-protecting / rebounding case
-      if (
-        p.rpg > 12.0 || p.bpg > 2.0 ||
-        arch === 'Paint Beast' || arch === 'Sharpshooter' ||
-        traits.includes('Floor Spacer')
-      ) sec.add('PF');
+    // ── Spin Bowler ───────────────────────────────────────────────────────
+    case 'SPIN':
+      // Enforcer: elite strike/economy numbers translate to a new-ball role → PACE
+      if (p.wkts > 1.3 || p.econ > 6.5 || arch === 'Death Bowler') sec.add('PACE');
       break;
   }
 
-  // Sort secondaries by proximity to natural position (ascending distance)
+  // Sort secondaries by proximity to natural slot (ascending distance)
   const myRank = POS_RANK[p.pos] ?? 2;
   return [...sec].sort(
     (a, b) => Math.abs(POS_RANK[a] - myRank) - Math.abs(POS_RANK[b] - myRank)

@@ -1,53 +1,39 @@
 /**
- * js/logic/era.js — Pace-Based Era Normalization
+ * js/logic/era.js — Era Pass-Through
  *
- * Counting stats (ppg/rpg/apg/spg/bpg) aren't era-neutral: league pace
- * (possessions per 48 min) has swung from ~125 in the run-and-gun 1960s down
- * to ~91 in the isolation-heavy 2000s and back up to ~99 today. A 1960s
- * center's 23 rpg reflects a league with ~30% more possessions to rebound,
- * not necessarily a more dominant rebounder than a 2000s center at 13 rpg.
+ * The NBA original rescales counting stats across decades because league
+ * pace (possessions/48min) swung hard over time — a 1960s big's rebounds
+ * reflect a much faster league, not necessarily more dominance.
  *
- * ERA_PACE holds approximate league-average possessions/48min per decade.
- * eraFactor() rescales a decade's raw stats to the 2020s pace baseline —
- * "what would this per-game rate look like at today's tempo?" — so the sim
- * engine compares eras on equal footing instead of rewarding whichever
- * decade happened to play the fastest.
+ * IPL cricket has no equivalent: every match, in every era from 2008 to
+ * today, is the same 20-over format. There's no "pace" to normalize away,
+ * so eraFactor() is a flat 1.0 across all eras — this module exists purely
+ * so simulation.js/challenge.js can keep calling the same functions without
+ * caring whether normalization is active.
  */
 
-const ERA_PACE = {
-  '1960s': 125.0,
-  '1970s': 107.0,
-  '1980s': 101.0,
-  '1990s': 95.0,
-  '2000s': 91.0,
-  '2010s': 94.5,
-  '2020s': 99.5,
-};
+const ERA_FACTOR = 1;
 
-const REFERENCE_PACE = ERA_PACE['2020s'];
-
-/** Multiplier that rescales a decade's raw counting stats to modern pace. */
-export function eraFactor(decade) {
-  const pace = decade && ERA_PACE[decade];
-  return pace ? REFERENCE_PACE / pace : 1;
+/** Always 1 — IPL's T20 format never changes pace across eras. */
+export function eraFactor(_era) {
+  return ERA_FACTOR;
 }
 
-/** A single stat (ppg/rpg/apg/spg/bpg), rescaled to modern pace. */
+/** A single stat (runs/sr/wkts/econ/field), unscaled (pass-through). */
 export function eraAdjustedStat(player, key) {
-  return (player?.[key] || 0) * eraFactor(player?.decade);
+  return player?.[key] || 0;
 }
 
-const COUNTING_STATS = ['ppg', 'rpg', 'apg', 'spg', 'bpg'];
+const COUNTING_STATS = ['runs', 'sr', 'wkts', 'econ', 'field'];
 
-/** All five counting stats, rescaled to modern pace, as a fresh object. */
+/** All five counting stats, unscaled, as a fresh object. */
 export function eraAdjustedLine(player) {
-  const f = eraFactor(player?.decade);
   const line = {};
-  for (const k of COUNTING_STATS) line[k] = (player?.[k] || 0) * f;
+  for (const k of COUNTING_STATS) line[k] = player?.[k] || 0;
   return line;
 }
 
-/** Extracts the '1960s'-style decade suffix from a "Team_1960s" DB bucket key. */
+/** Extracts the '2016-19'-style era suffix from a "Team_2016-19" DB bucket key. */
 export function decadeFromBucketKey(key) {
-  return key.match(/_(\d{4}s)$/)?.[1] ?? null;
+  return key.match(/_(\d{4}-\d{2})$/)?.[1] ?? null;
 }

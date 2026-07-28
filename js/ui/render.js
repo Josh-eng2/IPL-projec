@@ -17,8 +17,8 @@ import {
 } from '../logic/state.js';
 import { calculateChemistry, chemTier, chemTierColors }                             from '../logic/chemistry.js';
 import { rosterFull, availableDecades, getLegendCatalog, getSkips } from '../logic/draft.js';
-import { coachSystemProgress }                            from '../logic/simulation.js';
-import { getBracketDisplayState }                         from '../logic/playoffs.js';
+import { coachSystemProgress, SEASON_GAMES }              from '../logic/simulation.js';
+import { getBracketDisplayState, STAGES, STAGE_LABEL }     from '../logic/playoffs.js';
 import { markReturning, getCollectedLegends, getDailyStatus } from '../utils/storage.js';
 import { cgGameplayStart, cgGameplayStop, cgGetItem }     from '../utils/crazygames.js';
 import { gdRewardedAvailable }                            from '../utils/gamedistribution.js';
@@ -47,9 +47,8 @@ let _chemCache = { key: null, result: null };
 function iconBall(cls = '') {
   return `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="10"/>
-    <path d="M4.93 4.93a14.5 14.5 0 0 1 0 14.14"/>
-    <path d="M19.07 4.93a14.5 14.5 0 0 0 0 14.14"/>
-    <path d="M2 12h20"/><path d="M12 2v20"/>
+    <path d="M6 5.5a12 12 0 0 1 0 13"/>
+    <path d="M18 5.5a12 12 0 0 0 0 13"/>
   </svg>`;
 }
 function iconCheck(cls = '') {
@@ -134,8 +133,8 @@ export function archetypeBadge(arch) {
   return `<span class="inline-block text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full mt-0.5" style="background:${c.bg};color:${c.text}">${arch}</span>`;
 }
 
-/** Per-game stat display (PPG/RPG/APG/SPG/BPG) — real & simulated values carry
- *  2 decimals of precision for the math; the UI only needs 1 for readability. */
+/** Per-match stat display (runs/SR/wkts/econ/field) — real & simulated values
+ *  carry 2 decimals of precision for the math; the UI only needs 1 for readability. */
 export function fmtPG(n) {
   return (Number(n) || 0).toFixed(1);
 }
@@ -147,8 +146,8 @@ function seriesAgree(label, thirdPerson, secondPerson) {
 
 export function fmtDecadeShort(decade) {
   if (!decade) return '';
-  const m = decade.match(/(\d{2})(\d{2})s/);
-  return m ? m[2] + 's' : decade;
+  const m = decade.match(/^(\d{4})-(\d{2})$/);
+  return m ? `'${m[1].slice(2)}-${m[2]}` : decade;
 }
 
 export function fmtPlayerLine(p) {
@@ -307,7 +306,7 @@ function renderHeader(showRestart = false) {
              page had no h1 at all. Text matches what's visible on screen. -->
         <h1 class="app-header__brand">
           ${iconBall('h-5 w-5 text-primary')}
-          <span>82-0</span>
+          <span>14-0</span>
         </h1>
         <div class="app-header__actions">
           ${coachObj ? `<span class="header-pill header-pill--muted">${coachObj.system}</span>` : ''}
@@ -332,7 +331,7 @@ function renderFooter() {
   return `
   <footer class="w-full mt-auto" style="padding:2px 0">
     <p style="font-size:6px;color:var(--border);text-align:center;user-select:none;letter-spacing:0.02em;line-height:1">
-      82-0.com is an independent fan project not affiliated with the NBA or its teams. ·
+      This is an independent fan project not affiliated with the IPL, BCCI, or any franchise. ·
       <a href="privacy.html" target="_blank" rel="noopener noreferrer" style="color:var(--border);text-decoration:underline;user-select:auto">Privacy &amp; Terms</a>
     </p>
   </footer>`;
@@ -517,7 +516,7 @@ function renderModeSelect() {
     <header class="sticky top-0 z-50 w-full bg-white border-b border-border mode-header" style="box-shadow:0 1px 3px var(--header-shadow)">
       <div class="mx-auto flex h-14 max-w-2xl items-center justify-between px-4 mode-header__inner">
         <div class="w-20 mode-header__spacer"></div>
-        <img src="logo-badge.svg" alt="82-0" class="mode-header__logo" style="height:52px;width:auto;margin-top:2px"/>
+        <img src="logo-badge.svg" alt="14-0" class="mode-header__logo" style="height:52px;width:auto;margin-top:2px"/>
         <div class="flex items-center gap-1.5 justify-end mode-header__actions">
           <button data-action="open-daily-stats" class="text-[11px] px-2 py-1 rounded-full border border-border bg-card2 text-muted-fg hover:border-primary hover:text-primary transition-all cursor-pointer" title="Daily Challenge Stats" aria-label="Daily Challenge Stats">📊</button>
           <button data-action="open-leaderboard" class="text-[11px] px-2 py-1 rounded-full border border-border bg-card2 text-muted-fg hover:border-primary hover:text-primary transition-all cursor-pointer" title="Personal Best" aria-label="Personal Best">🏅</button>
@@ -641,7 +640,7 @@ function renderLegends() {
     return `
     <div class="rounded-xl border border-border bg-white p-3 card-shadow">
       <div class="flex items-center justify-between mb-1.5">
-        <p class="text-sm font-black text-foreground">${decade}${done ? ' <span class="text-[10px]" title="Decade complete">✅</span>' : ''}</p>
+        <p class="text-sm font-black text-foreground">${decade}${done ? ' <span class="text-[10px]" title="Era complete">✅</span>' : ''}</p>
         <span class="text-xs font-bold" style="color:${done ? (isDark() ? '#4ade80' : '#16a34a') : (isDark() ? '#a5b4fc' : '#6366f1')}">${got.length}/${players.length}</span>
       </div>
       <div class="h-1.5 rounded-full overflow-hidden mb-2.5" style="background:var(--surface-track)">
@@ -710,7 +709,7 @@ function renderCoachChip() {
     </span>`;
 
   const chip = locked
-    ? `<div class="w-full rounded-xl border border-border bg-card px-3 py-2 flex items-center gap-2 card-shadow" title="Coach locked for this run">${chipInner}</div>`
+    ? `<div class="w-full rounded-xl border border-border bg-card px-3 py-2 flex items-center gap-2 card-shadow" title="Captain locked for this run">${chipInner}</div>`
     : `<button data-action="coach-picker-toggle"
         class="w-full rounded-xl border bg-card px-3 py-2 flex items-center gap-2 card-shadow cursor-pointer transition-all hover:border-primary text-left"
         style="border-color:${S.coachPickerOpen ? coach.accent : 'var(--border)'}">${chipInner}</button>`;
@@ -740,10 +739,10 @@ function renderColdOpenBanner() {
   return `
   <div class="rounded-2xl p-3.5 flex items-center gap-3 animate-fade-up card-shadow draft-cold-open"
     style="background:var(--surface-orange);border:1.5px solid #fed7aa">
-    <span class="text-2xl flex-shrink-0">🏀</span>
+    <span class="text-2xl flex-shrink-0">🏏</span>
     <div class="min-w-0">
-      <p class="text-sm font-black text-foreground leading-tight">Welcome to 82-0 — your first pick is waiting.</p>
-      <p class="text-xs text-muted-fg mt-0.5">Coach <b>${coach ? coach.name : ''}</b> is running the show${coach ? ` (${coach.system})` : ''}. Draft 5 legends, then chase the perfect season.</p>
+      <p class="text-sm font-black text-foreground leading-tight">Welcome to 14-0 — your first pick is waiting.</p>
+      <p class="text-xs text-muted-fg mt-0.5">Captain <b>${coach ? coach.name : ''}</b> is running the show${coach ? ` (${coach.system})` : ''}. Draft 5 legends, then chase the perfect season.</p>
     </div>
   </div>`;
 }
@@ -906,7 +905,7 @@ function render1v1RosterPanel(roster, playerNum, isActive) {
     return `<div class="flex items-center gap-1.5 py-1 border-b border-border last:border-0 ${p ? 'locked' : ''}">
       <span class="text-[10px] font-black w-5 flex-shrink-0" style="color:${p ? color : '#cbd5e1'}">${label}</span>
       <span class="text-[11px] font-semibold flex-1 truncate ${p ? 'text-foreground' : 'text-muted-fg/40'}">${p ? p.name.split(' ').slice(-1)[0] : '—'}</span>
-      ${p ? `<span class="text-[10px] text-muted-fg flex-shrink-0">${fmtPG(p.ppg)}pt</span>` : ''}
+      ${p ? `<span class="text-[10px] text-muted-fg flex-shrink-0">${fmtPG(p.runs)}r</span>` : ''}
     </div>`;
   }).join('');
 
@@ -1326,7 +1325,7 @@ function renderDraftCard(p, index) {
       </div>
       <p class="font-bold text-sm text-foreground leading-tight mb-1.5 draft-card__name">${p.name}</p>
       <div class="flex flex-wrap gap-x-2 gap-y-0.5 draft-card__stats">
-        ${[['PPG', p.ppg], ['RPG', p.rpg], ['APG', p.apg], ['SPG', p.spg], ['BPG', p.bpg]].map(([l, v]) =>
+        ${[['RUNS', p.runs], ['SR', p.sr], ['WKTS', p.wkts], ['ECON', p.econ], ['FLD', p.field]].map(([l, v]) =>
           `<span class="text-[10px] text-muted-fg"><span class="font-semibold text-foreground">${fmtPG(v)}</span> ${l}</span>`
         ).join('')}
       </div>
@@ -1381,7 +1380,7 @@ function renderRosterSlot(pos, canPlace) {
     const labelColor  = fitColors[fitType];
     const ppgLine = S.mode === 'blind'
       ? ''
-      : `<span class="text-[10px] text-muted-fg leading-none">${fmtPG(p.ppg)}pt</span>`;
+      : `<span class="text-[10px] text-muted-fg leading-none">${fmtPG(p.runs)}r</span>`;
 
     return `
     <div class="rounded-xl border bg-white p-2 flex flex-col items-center gap-0.5 text-center overflow-hidden card-shadow locked draft-roster-slot ${fitClass}"
@@ -1504,10 +1503,10 @@ function renderSimulateCard() {
     : isDynasty
     ? `Challenge ${S.dynastyOpponent?.name || 'Dynasty'} →`
     : S.mode === 'defense'
-    ? 'Simulate Defense Season →'
+    ? 'Simulate Bowling Season →'
     : S.mode === 'fans'
     ? 'Simulate Fans First Season →'
-    : 'Simulate 82 Games →';
+    : `Simulate ${SEASON_GAMES} Matches →`;
   const btnColor = isDual && isP1 ? '#d97706' : isDynasty ? '#b45309' : '#2563eb';
   const btnHover = isDual && isP1 ? '#b45309' : isDynasty ? '#92400e' : '#1d4ed8';
   const subtitle = isDual && isP1
@@ -1675,7 +1674,7 @@ export function renderSeasonTickerRows() {
 
 function renderSeasonSim() {
   const idx    = S.seasonRevealIdx || 0;
-  const total  = (S.seasonGames || []).length || 82;
+  const total  = (S.seasonGames || []).length || SEASON_GAMES;
   const played = (S.seasonGames || []).slice(0, idx);
   const w      = played.filter(g => g.won).length;
   const l      = played.length - w;
@@ -1892,7 +1891,7 @@ function renderResults() {
   else                 { labelColor = isDark() ? '#f87171' : '#991b1b'; labelBg = isDark() ? 'rgba(239,68,68,0.12)' : '#fef2f2'; }
 
   const modeBadge = S.mode === 'defense'
-    ? `<span class="inline-block text-[11px] font-bold px-3 py-1 rounded-full mb-2 border" style="border-color:color-mix(in srgb,#8b5cf6 35%,var(--border));background:color-mix(in srgb,#8b5cf6 14%,var(--card));color:var(--fg)">🛡️ DEF profile · ${r.teamStocks ?? 0} stocks</span>`
+    ? `<span class="inline-block text-[11px] font-bold px-3 py-1 rounded-full mb-2 border" style="border-color:color-mix(in srgb,#8b5cf6 35%,var(--border));background:color-mix(in srgb,#8b5cf6 14%,var(--card));color:var(--fg)">🎯 Bowling profile · ${r.teamFielding ?? 0} combined</span>`
     : S.mode === 'fans'
     ? `<span class="inline-block text-[11px] font-bold px-3 py-1 rounded-full mb-2 border" style="border-color:color-mix(in srgb,#ec4899 35%,var(--border));background:color-mix(in srgb,#ec4899 14%,var(--card));color:var(--fg)">📣 Fans First score ${r.fansScore ?? 0}${r.fansPassed ? ' · ✓ (≥70 pop & ≥35 wins)' : ' · need ≥70 pop & ≥35 wins'}</span>`
     : '';
@@ -1913,17 +1912,17 @@ function renderResults() {
   const simById   = Object.fromEntries((r.playerStats || []).map(l => [l.id, l]));
   const leaders   = r.statLeaders || null;
   const leaderRows = leaders ? [
-    { icon: '🏀', label: 'Points',   key: 'ppg', e: leaders.scoring    },
-    { icon: '🪃', label: 'Rebounds', key: 'rpg', e: leaders.rebounding },
-    { icon: '🎯', label: 'Assists',  key: 'apg', e: leaders.assists    },
-    { icon: '🧤', label: 'Steals',   key: 'spg', e: leaders.steals     },
-    { icon: '🛡️', label: 'Blocks',   key: 'bpg', e: leaders.blocks     },
+    { icon: '🏏', label: 'Runs',    key: 'runs', e: leaders.batting  },
+    { icon: '⚡', label: 'Strike Rate', key: 'sr', e: leaders.striking },
+    { icon: '🎯', label: 'Wickets', key: 'wkts', e: leaders.bowling  },
+    { icon: '🔒', label: 'Economy', key: 'econ', e: leaders.economy  },
+    { icon: '🧤', label: 'Fielding', key: 'field', e: leaders.fielding },
   ].filter(row => row.e) : [];
   const seasonLeadersCard = leaderRows.length ? `
     <div class="rounded-2xl border border-border bg-white p-4 card-shadow">
       <div class="flex items-center justify-between mb-3">
         <p class="text-xs font-bold uppercase tracking-widest text-muted-fg">Season Leaders</p>
-        <span class="text-[10px] font-bold text-muted-fg">82-game averages</span>
+        <span class="text-[10px] font-bold text-muted-fg">${SEASON_GAMES}-match averages</span>
       </div>
       <div class="flex flex-col gap-1.5">
         ${leaderRows.map(({ icon, label, key, e }) => `
@@ -1959,10 +1958,10 @@ function renderResults() {
     </span>`;
   })();
 
-  // Scaled to 5-starter sums (an elite roster reads ~85-95%): the theoretical
-  // ceilings in this DB are ~187 ppg / 117 rpg / 59 apg / 16 spg / 20 bpg for
-  // the five best per category — unreachable simultaneously.
-  const maxes = { ppg: 150, rpg: 65, apg: 40, spg: 10, bpg: 10 };
+  // Scaled to 5-starter sums (an elite roster reads ~85-95%) — the theoretical
+  // ceilings across this DB's five best per category are unreachable
+  // simultaneously on one XI.
+  const maxes = { runs: 250, sr: 850, wkts: 10, econ: 30, field: 7 };
   const statBar = (key, lbl, val) => {
     const pct   = Math.min(100, (val / maxes[key]) * 100);
     const color = pct >= 70 ? (isDark() ? '#60a5fa' : '#2563eb') : pct >= 45 ? (isDark() ? '#fbbf24' : '#d97706') : (isDark() ? '#cbd5e1' : '#94a3b8');
@@ -2003,9 +2002,9 @@ function renderResults() {
         </div>
       </div>
       <div class="flex gap-3 text-xs text-muted-fg flex-shrink-0">
-        <span><span class="font-semibold text-foreground">${fmtPG(s.ppg)}</span> PPG</span>
-        <span><span class="font-semibold text-foreground">${fmtPG(s.rpg)}</span> RPG</span>
-        <span class="hidden sm:inline"><span class="font-semibold text-foreground">${fmtPG(s.apg)}</span> APG</span>
+        <span><span class="font-semibold text-foreground">${fmtPG(s.runs)}</span> RUNS</span>
+        <span><span class="font-semibold text-foreground">${fmtPG(s.sr)}</span> SR</span>
+        <span class="hidden sm:inline"><span class="font-semibold text-foreground">${fmtPG(s.wkts)}</span> WKTS</span>
       </div>
     </div>`;
   };
@@ -2059,7 +2058,7 @@ function renderResults() {
           <div class="flex items-center justify-center gap-2 flex-wrap">
             <span class="inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-1 rounded-full border"
               style="background:${ovrColor(teamOvr)}12;border-color:${ovrColor(teamOvr)}40;color:${ovrColor(teamOvr)}">
-              🏀 Team OVR ${teamOvr}${ratingImpactLabel}
+              🏏 Team OVR ${teamOvr}${ratingImpactLabel}
             </span>
             ${chemTopChip}
             ${r.longestStreak >= 5 ? `<span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border" style="background:#fef2f2;border-color:#fecaca;color:#dc2626">🔥 ${r.longestStreak}-game win streak</span>` : ''}
@@ -2083,14 +2082,14 @@ function renderResults() {
 
         <!-- Advance to Playoffs + Autopsy side by side -->
         <div class="results-block--playoffs grid grid-cols-1 sm:grid-cols-2 gap-4">
-          ${r.wins >= 20 ? `
+          ${r.wins >= 4 ? `
           <div class="rounded-2xl border-2 border-primary bg-white p-5 card-shadow flex flex-col justify-between">
             <div class="text-center mb-4">
               <span class="text-4xl mb-2 block">🏆</span>
               <p class="text-sm font-black text-foreground mb-1">Advance to Playoffs</p>
-              <p class="text-xs text-muted-fg">${r.wins / 82 < 0.35
-                ? `Sneak that ${r.wins}-win squad into the bracket anyway — every low seed dreams of a stolen series.`
-                : `Take your ${r.wins}-win roster into the postseason bracket.`}</p>
+              <p class="text-xs text-muted-fg">${r.wins / SEASON_GAMES < 0.35
+                ? `Sneak that ${r.wins}-win squad into the bracket anyway — every low seed dreams of a stolen run.`
+                : `Take your ${r.wins}-win XI into the postseason bracket.`}</p>
             </div>
             <button data-action="advance-to-playoffs"
               class="w-full py-3 rounded-xl font-bold text-sm bg-primary text-white hover:bg-blue-700 transition-all cursor-pointer card-shadow">
@@ -2101,7 +2100,7 @@ function renderResults() {
             <div class="text-center mb-2">
               <span class="text-4xl mb-2 block">📋</span>
               <p class="text-sm font-black text-foreground mb-1">No Playoff Bid</p>
-              <p class="text-xs text-muted-fg">Need at least 20 wins to crack the bracket. Run it back and rebuild.</p>
+              <p class="text-xs text-muted-fg">Need at least 4 wins to crack the bracket. Run it back and rebuild.</p>
             </div>
           </div>`}
           ${autopsy ? `
@@ -2123,13 +2122,13 @@ function renderResults() {
           </div>` : isPerfect ? `
           <div class="rounded-2xl p-4 card-shadow flex flex-col perfect-glow" style="border:1.5px solid #fcd34d;background:${isDark() ? 'rgba(251,191,36,0.08)' : '#fffbeb'}">
             <p class="text-xs font-bold uppercase tracking-widest mb-2.5" style="color:${isDark() ? '#fcd34d' : '#b45309'}">
-              Congratulations — 82-0
+              Congratulations — 14-0
             </p>
             <div class="flex items-start gap-3 flex-1">
               <span class="text-2xl flex-shrink-0">🏆</span>
               <div class="min-w-0 flex-1">
                 <p class="text-sm font-black mb-0.5" style="color:${isDark() ? '#fcd34d' : '#92400e'}">You went undefeated!</p>
-                <p class="text-xs leading-relaxed" style="color:${isDark() ? '#fde68a' : '#b45309'}">No losses to dissect — you drafted an all-time roster, nailed the chemistry, and ran the table. No NBA team has ever gone 82–0. Now take the #1 seed into the playoffs and finish the job.</p>
+                <p class="text-xs leading-relaxed" style="color:${isDark() ? '#fde68a' : '#b45309'}">No losses to dissect — you drafted an all-time XI, nailed the chemistry, and ran the table. Few IPL sides have ever gone unbeaten through the league stage. Now take the #1 seed into the playoffs and finish the job.</p>
                 <p class="text-xs font-bold mt-2" style="color:${isDark() ? '#fbbf24' : '#d97706'}">🎉 Immortality is one playoff run away.</p>
               </div>
             </div>
@@ -2194,11 +2193,11 @@ function renderResults() {
           <p class="text-xs font-bold uppercase tracking-widest text-muted-fg mb-4">Team Statistics</p>
           <div class="flex flex-col gap-3">
             ${(() => { const t = r.simTotals || r.totals; return `
-            ${statBar('ppg', 'Points Per Game',   t.ppg)}
-            ${statBar('rpg', 'Rebounds Per Game', t.rpg)}
-            ${statBar('apg', 'Assists Per Game',  t.apg)}
-            ${statBar('spg', 'Steals Per Game',   t.spg)}
-            ${statBar('bpg', 'Blocks Per Game',   t.bpg)}`; })()}
+            ${statBar('runs', 'Runs Combined',     t.runs)}
+            ${statBar('sr',   'Strike Rate Combined', t.sr)}
+            ${statBar('wkts', 'Wickets Combined',   t.wkts)}
+            ${statBar('econ', 'Economy Combined',   t.econ)}
+            ${statBar('field','Fielding Combined',  t.field)}`; })()}
           </div>
         </div>
         <div class="rounded-2xl border border-border bg-white p-4 card-shadow">
@@ -2360,51 +2359,27 @@ function renderBracketMatchup(top, bottom, opts = {}) {
 }
 
 function renderPlayoffBracketTree(po) {
-  const { qf, sf, finals, champion } = getBracketDisplayState(po);
-  const roundLabels = ['Quarterfinals', 'Semifinals', 'Finals'];
+  const { rows, champion } = getBracketDisplayState(po);
+  const seedFor = (team) => team && po.seeds ? po.seeds.findIndex(s => s === team || (s.name === team.name)) + 1 || null : null;
 
   return `
   <div class="playoff-bracket-wrap">
-    <div class="playoff-bracket" role="img" aria-label="NBA Playoff bracket">
-      <div class="playoff-bracket__col playoff-bracket__col--qf">
-        <p class="playoff-bracket__round-label">${roundLabels[0]}</p>
+    <div class="playoff-bracket" role="img" aria-label="IPL Playoff bracket">
+      ${rows.map(row => `
+      <div class="playoff-bracket__col playoff-bracket__col--${row.stage}">
+        <p class="playoff-bracket__round-label">${row.label}</p>
         <div class="playoff-bracket__stack">
-          ${qf.map((m, i) => `
-          <div class="bracket-matchup-wrap bracket-matchup-wrap--qf${i}">
-            ${renderBracketMatchup(m.top, m.bottom, {
-              topSeed: m.topSeed, bottomSeed: m.bottomSeed,
-              topScore: m.topScore, bottomScore: m.bottomScore,
-              topWon: m.complete || m.live ? m.topWon : null,
-              live: m.live,
-            })}
-          </div>`).join('')}
-        </div>
-      </div>
-      <div class="playoff-bracket__col playoff-bracket__col--sf">
-        <p class="playoff-bracket__round-label">${roundLabels[1]}</p>
-        <div class="playoff-bracket__stack playoff-bracket__stack--sf">
-          ${sf.map((m, i) => `
-          <div class="bracket-matchup-wrap bracket-matchup-wrap--sf${i}">
-            ${renderBracketMatchup(m.top, m.bottom, {
-              topScore: m.topScore, bottomScore: m.bottomScore,
-              topWon: m.complete || m.live ? m.topWon : null,
-              live: m.live,
-            })}
-          </div>`).join('')}
-        </div>
-      </div>
-      <div class="playoff-bracket__col playoff-bracket__col--f">
-        <p class="playoff-bracket__round-label">${roundLabels[2]}</p>
-        <div class="playoff-bracket__stack playoff-bracket__stack--f">
-          <div class="bracket-matchup-wrap bracket-matchup-wrap--f">
-            ${renderBracketMatchup(finals.top, finals.bottom, {
-              topScore: finals.topScore, bottomScore: finals.bottomScore,
-              topWon: finals.complete || finals.live ? finals.topWon : null,
-              live: finals.live,
+          <div class="bracket-matchup-wrap bracket-matchup-wrap--${row.stage}">
+            ${renderBracketMatchup(row.teamA, row.teamB, {
+              topSeed:    (row.stage === 'qualifier1' || row.stage === 'eliminator') ? seedFor(row.teamA) : null,
+              bottomSeed: (row.stage === 'qualifier1' || row.stage === 'eliminator') ? seedFor(row.teamB) : null,
+              topScore: row.scoreA, bottomScore: row.scoreB,
+              topWon: row.complete ? (row.winner === row.teamA) : (row.live ? null : null),
+              live: row.live,
             })}
           </div>
         </div>
-      </div>
+      </div>`).join('')}
       <div class="playoff-bracket__col playoff-bracket__col--champ">
         <p class="playoff-bracket__round-label">Champion</p>
         <div class="bracket-champion${champion ? ' bracket-champion--filled' : ''}">
@@ -2420,7 +2395,7 @@ function renderPlayoffBracketTree(po) {
 function renderPlayoffs() {
   const po = S.playoffs;
   const r  = S.result;
-  if (po.currentRound >= 3 && !po.pendingReveal) {
+  if (po.stage === 'complete' && !po.pendingReveal) {
     return po.champion ? renderChampionship() : renderEliminated();
   }
 
@@ -2428,32 +2403,33 @@ function renderPlayoffs() {
   // "Simulate Entire Playoffs" resolves the whole tournament at once — hold
   // on the fully-filled bracket so the result is visible before handing off
   // to the champion/eliminated splash screen.
-  const reveal = po.pendingReveal;
-  const roundName = po.roundNames[Math.min(po.currentRound, po.roundNames.length - 1)];
-  const simLabel   = ts ? 'Simulating...' : `Simulate ${roundName}`;
+  const reveal    = po.pendingReveal;
+  const stageName = STAGE_LABEL[po.stage] || 'Final';
+  const simLabel  = ts ? 'Simulating...' : `Simulate ${stageName}`;
   const headline   = reveal
     ? (po.champion
-        ? '🏆 World Champions!'
+        ? '🏆 IPL Champions!'
         : po.championTeam
           ? `🏆 ${po.championTeam.name} Win the Title`
           : `💔 Eliminated — ${po.eliminatedIn}`)
     : 'Playoff Bracket';
   const champBanner = reveal && po.championTeam && !po.champion ? `
         <div class="rounded-xl border-2 border-amber-300 bg-amber-50 p-4 text-center card-shadow">
-          <p class="text-xs font-bold uppercase tracking-widest text-amber-600 mb-1">NBA Champion</p>
+          <p class="text-xs font-bold uppercase tracking-widest text-amber-600 mb-1">IPL Champion</p>
           <p class="text-xl font-black text-amber-700">🏆 ${po.championTeam.name}</p>
           <p class="text-xs text-muted-fg mt-1">Your run ended in the ${po.eliminatedIn || 'playoffs'}</p>
         </div>` : '';
 
+  const isComplete = po.stage === 'complete';
   return `
   <div class="min-h-screen flex flex-col main-gradient">
     ${renderHeader(false)}
     <main class="flex-1 flex flex-col items-center px-4 py-6">
       <div class="w-full max-w-3xl flex flex-col gap-4">
         <div class="text-center">
-          <p class="text-xs font-bold uppercase tracking-widest text-primary mb-1">NBA Playoffs</p>
+          <p class="text-xs font-bold uppercase tracking-widest text-primary mb-1">IPL Playoffs</p>
           <h1 class="text-2xl font-black text-foreground">${headline}</h1>
-          <p class="text-sm text-muted-fg mt-1">Regular Season: ${r.wins}–${r.losses} · Seed #${po.playerSeed}</p>
+          <p class="text-sm text-muted-fg mt-1">League Stage: ${r.wins}–${r.losses} · Seed #${po.playerSeed}</p>
         </div>
         <div class="rounded-2xl border border-border bg-white p-3 sm:p-4 card-shadow overflow-hidden">
           ${renderPlayoffBracketTree(po)}
@@ -2465,11 +2441,11 @@ function renderPlayoffs() {
             class="py-3.5 rounded-xl font-black text-sm transition-all text-center card-shadow bg-primary text-white hover:bg-blue-700 cursor-pointer">
             ${po.champion ? 'Continue to Championship 🏆' : 'Continue →'}
           </button>` : `
-          <button data-action="sim-next-round" type="button" ${ts || po.currentRound >= 3 ? 'disabled' : ''}
-            class="py-3.5 rounded-xl font-black text-sm transition-all text-center card-shadow ${ts || po.currentRound >= 3 ? 'bg-card2 border border-border text-muted-fg cursor-not-allowed' : 'bg-primary text-white hover:bg-blue-700 cursor-pointer'}">
+          <button data-action="sim-next-round" type="button" ${ts || isComplete ? 'disabled' : ''}
+            class="py-3.5 rounded-xl font-black text-sm transition-all text-center card-shadow ${ts || isComplete ? 'bg-card2 border border-border text-muted-fg cursor-not-allowed' : 'bg-primary text-white hover:bg-blue-700 cursor-pointer'}">
             ${ts ? 'Simulating...' : `${simLabel} →`}
           </button>
-          <button data-action="sim-all-playoffs" type="button" ${ts || po.currentRound >= 3 ? 'disabled' : ''}
+          <button data-action="sim-all-playoffs" type="button" ${ts || isComplete ? 'disabled' : ''}
             class="py-3.5 rounded-xl font-bold text-sm transition-all text-center card-shadow border-2 border-primary/30 bg-white text-primary hover:bg-blue-50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
             Simulate Entire Playoffs →
           </button>`}
@@ -2484,17 +2460,26 @@ function renderPlayoffs() {
   </div>`;
 }
 
+/** Player-perspective line for one completed playoff match, or null if the player wasn't in it. */
+function playoffMatchLine(stage, m) {
+  if (!m) return null;
+  const playerIsA = m.teamA.isPlayer;
+  const playerIsB = m.teamB.isPlayer;
+  if (!playerIsA && !playerIsB) return null;
+  const won = playerIsA ? m.won : !m.won;
+  const opp = playerIsA ? m.teamB : m.teamA;
+  const myScore  = playerIsA ? m.teamScore : m.oppScore;
+  const oppScore = playerIsA ? m.oppScore  : m.teamScore;
+  return { stage, won, opp, myScore, oppScore };
+}
+
 function renderChampionship() {
   const po = S.playoffs;
   const r  = S.result;
-  const roundSummary = po.rounds.map((round, i) => {
-    const sr = round.find(s => s.teamA.isPlayer || s.teamB.isPlayer);
-    if (!sr) return '';
-    const opp = sr.teamA.isPlayer ? sr.teamB : sr.teamA;
-    const w   = sr.teamA.isPlayer ? sr.playerWins : sr.oppWins;
-    const l   = sr.teamA.isPlayer ? sr.oppWins   : sr.playerWins;
-    const isFinals = i === po.rounds.length - 1;
-    const line = `${po.roundNames[i]}: <span class="text-foreground font-semibold">def. ${opp.name} ${w}–${l}</span>`;
+  const lines = STAGES.map(stage => playoffMatchLine(stage, po.matches[stage])).filter(Boolean);
+  const roundSummary = lines.map((l, i) => {
+    const isFinals = l.stage === 'final';
+    const line = `${STAGE_LABEL[l.stage]}: <span class="text-foreground font-semibold">def. ${l.opp.name} ${l.myScore}–${l.oppScore}</span>`;
     return isFinals
       ? `<p class="text-base font-black text-amber-700 mt-1">${line}</p>`
       : `<p class="text-sm text-muted-fg">${line}</p>`;
@@ -2505,12 +2490,12 @@ function renderChampionship() {
     <main class="flex-1 flex flex-col items-center justify-center px-4 py-8">
       <div class="w-full max-w-lg flex flex-col gap-5 items-center text-center animate-fade-up">
         <div class="text-6xl mb-2">🏆</div>
-        <h1 class="text-3xl font-black text-primary">WORLD CHAMPIONS!</h1>
-        <p class="text-base text-foreground">Your team conquered the NBA Playoffs!</p>
+        <h1 class="text-3xl font-black text-primary">IPL CHAMPIONS!</h1>
+        <p class="text-base text-foreground">Your XI conquered the IPL Playoffs!</p>
         <div class="rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 w-full text-left card-shadow">
           <p class="text-xs font-bold uppercase tracking-widest text-amber-600 mb-3">Championship Run</p>
           ${roundSummary}
-          <p class="text-sm text-muted-fg mt-2">Regular Season: ${r.wins}–${r.losses} · Seed #${po.playerSeed}</p>
+          <p class="text-sm text-muted-fg mt-2">League Stage: ${r.wins}–${r.losses} · Seed #${po.playerSeed}</p>
         </div>
         ${renderGlobalSubmitCard(true)}
         <div class="flex flex-col gap-3 w-full">
@@ -2526,15 +2511,9 @@ function renderChampionship() {
 function renderEliminated() {
   const po = S.playoffs;
   const r  = S.result;
-  const lastRound = po.rounds[po.rounds.length - 1];
-  const roundSummary = po.rounds.map((round, i) => {
-    const sr  = round.find(s => s.teamA.isPlayer || s.teamB.isPlayer);
-    if (!sr) return '';
-    const opp = sr.teamA.isPlayer ? sr.teamB : sr.teamA;
-    const w   = sr.teamA.isPlayer ? sr.playerWins : sr.oppWins;
-    const l   = sr.teamA.isPlayer ? sr.oppWins   : sr.playerWins;
-    const won = w > l;
-    return `<p class="text-sm ${won ? 'text-muted-fg' : 'text-red-500'}">${po.roundNames[i]}: <span class="${won ? 'text-foreground' : 'text-red-600'} font-semibold">${won ? `def. ${opp.name} ${w}–${l}` : `lost to ${opp.name} ${w}–${l}`}</span></p>`;
+  const lines = STAGES.map(stage => playoffMatchLine(stage, po.matches[stage])).filter(Boolean);
+  const roundSummary = lines.map(l => {
+    return `<p class="text-sm ${l.won ? 'text-muted-fg' : 'text-red-500'}">${STAGE_LABEL[l.stage]}: <span class="${l.won ? 'text-foreground' : 'text-red-600'} font-semibold">${l.won ? `def. ${l.opp.name} ${l.myScore}–${l.oppScore}` : `lost to ${l.opp.name} ${l.oppScore}–${l.myScore}`}</span></p>`;
   }).join('');
   return `
   <div class="min-h-screen flex flex-col main-gradient">
@@ -2547,11 +2526,11 @@ function renderEliminated() {
         <div class="rounded-2xl border border-border bg-white p-5 w-full text-left card-shadow">
           <p class="text-xs font-bold uppercase tracking-widest text-muted-fg mb-3">Playoff Run</p>
           ${roundSummary}
-          <p class="text-sm text-muted-fg mt-3">Regular Season: ${r.wins}–${r.losses} · Seed #${po.playerSeed}</p>
+          <p class="text-sm text-muted-fg mt-3">League Stage: ${r.wins}–${r.losses} · Seed #${po.playerSeed}</p>
         </div>
         ${po.championTeam ? `
         <div class="rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 w-full text-center card-shadow">
-          <p class="text-xs font-bold uppercase tracking-widest text-amber-600 mb-1">NBA Champion</p>
+          <p class="text-xs font-bold uppercase tracking-widest text-amber-600 mb-1">IPL Champion</p>
           <p class="text-xl font-black text-amber-700">🏆 ${po.championTeam.name}</p>
         </div>` : ''}
         ${renderGlobalSubmitCard(false)}
@@ -2586,7 +2565,7 @@ function renderTrophyRoom() {
             <span class="text-xl" style="opacity:0.15;filter:grayscale(1)">🏆</span>
             <span class="text-[8px] font-bold uppercase" style="color:var(--muted)">Empty</span>
           </div>`;
-          const perfect = t.wins === 82;
+          const perfect = t.wins === SEASON_GAMES;
           return `
           <div class="rounded-xl flex flex-col items-center justify-center py-3 gap-1 ${perfect ? 'perfect-glow' : 'card-shadow'}"
             style="background:${perfect ? '#fffbeb' : 'var(--card3)'};border:1.5px solid ${perfect ? '#fcd34d' : 'var(--border)'}">
@@ -2600,13 +2579,13 @@ function renderTrophyRoom() {
         : ''}
     </div>`;
   const trophyCards = trophies.map(t => {
-    const isPerfect = t.wins === 82 && t.losses === 0;
+    const isPerfect = t.wins === SEASON_GAMES && t.losses === 0;
     const cb  = isPerfect ? 'border-amber-300' : 'border-border';
     const cbg = isPerfect ? 'bg-amber-50' : 'bg-white';
     const cgl = isPerfect ? 'style="box-shadow:0 2px 16px rgba(217,119,6,0.15)"' : 'class="card-shadow"';
     return `
       <div class="rounded-2xl border p-4 flex flex-col gap-3 ${cb} ${cbg}" ${cgl}>
-        ${isPerfect ? `<p class="text-[10px] font-black uppercase tracking-widest text-amber-600">⭐ Perfect Season — 82-0</p>` : ''}
+        ${isPerfect ? `<p class="text-[10px] font-black uppercase tracking-widest text-amber-600">⭐ Perfect Season — 14-0</p>` : ''}
         <div class="flex items-start justify-between gap-2">
           <div class="min-w-0">
             <p class="font-black text-base ${isPerfect ? 'text-amber-700' : 'text-primary'} truncate">${t.coachName}</p>
@@ -2718,7 +2697,7 @@ function renderSeriesResult() {
       <span class="text-[10px] font-black text-muted-fg w-6 flex-shrink-0">${pos}</span>
       <span class="text-xs font-semibold text-foreground flex-1 truncate">${p.name}</span>
       <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0" style="background:${ovrColor(p.overall)}18;color:${ovrColor(p.overall)}">${Math.round(p.overall ?? 0)}</span>
-      <span class="text-[10px] text-muted-fg">${fmtPG(p.ppg)}pt</span>
+      <span class="text-[10px] text-muted-fg">${fmtPG(p.runs)}r</span>
     </div>`;
   }).join('');
 
@@ -2781,20 +2760,20 @@ function renderSeriesResult() {
               <p class="text-xs font-bold uppercase tracking-widest" style="color:#2563eb">${labels.p1}</p>
               ${chemBadge(p1s.chemScore)}
             </div>
-            ${p1Coach ? `<p class="text-[10px] text-muted-fg mb-2 font-medium">Coach: ${p1Coach.name}</p>` : ''}
+            ${p1Coach ? `<p class="text-[10px] text-muted-fg mb-2 font-medium">Captain: ${p1Coach.name}</p>` : ''}
             <p class="text-[10px] font-bold uppercase tracking-wider text-muted-fg/60 mb-1">Starting 5</p>
-            ${rosterMini(S.p1Roster || S.p1?.roster || {}, ['PG','SG','SF','PF','C'])}
+            ${rosterMini(S.p1Roster || S.p1?.roster || {}, ['OPEN','MID','WK','PACE','SPIN'])}
           </div>
           <div class="rounded-2xl border p-4 card-shadow" style="border-color:#fde68a;background:var(--surface-cream)">
             <div class="flex items-center justify-between mb-3">
               <p class="text-xs font-bold uppercase tracking-widest" style="color:#d97706">${labels.p2}</p>
               ${chemBadge(p2s.chemScore)}
             </div>
-            ${p2Coach ? `<p class="text-[10px] text-muted-fg mb-2 font-medium">Coach: ${p2Coach.name}</p>` : ''}
+            ${p2Coach ? `<p class="text-[10px] text-muted-fg mb-2 font-medium">Captain: ${p2Coach.name}</p>` : ''}
             <p class="text-[10px] font-bold uppercase tracking-wider text-muted-fg/60 mb-1">Starting 5</p>
             ${S.mode === 'dynasty-duel'
               ? `<p class="text-xs text-muted-fg py-2">Legendary ${labels.p2} — strength ${p2s.strength.toFixed(2)}</p>`
-              : rosterMini(S.p2Roster || S.roster, ['PG','SG','SF','PF','C'])}
+              : rosterMini(S.p2Roster || S.roster, ['OPEN','MID','WK','PACE','SPIN'])}
           </div>
         </div>
 
@@ -2850,7 +2829,7 @@ function renderSeriesPreview() {
       <span class="text-[10px] font-black w-5 flex-shrink-0" style="color:${p ? color : '#cbd5e1'}">${pos}</span>
       <span class="text-xs font-semibold flex-1 truncate ${p ? 'text-foreground' : 'text-muted-fg/40'}">${p ? p.name : '—'}</span>
       ${p ? `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0" style="background:${ovrColor(p.overall)}18;color:${ovrColor(p.overall)}">${Math.round(p.overall ?? 0)}</span>` : ''}
-      ${p ? `<span class="text-[10px] text-muted-fg">${fmtPG(p.ppg)}pt</span>` : ''}
+      ${p ? `<span class="text-[10px] text-muted-fg">${fmtPG(p.runs)}r</span>` : ''}
     </div>`;
   }).join('');
 
@@ -2907,7 +2886,7 @@ function renderSeriesPreview() {
 
         <button data-action="begin-series"
           class="w-full py-4 rounded-xl font-black text-base uppercase tracking-widest bg-primary text-white hover:bg-blue-700 transition-all cursor-pointer animate-pulse-glow card-shadow">
-          🏀 Begin The Series →
+          🏏 Begin The Series →
         </button>
 
       </div>

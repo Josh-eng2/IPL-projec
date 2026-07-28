@@ -24,7 +24,8 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const ORIGIN = 'https://canyougo820.com';
+// TODO: point this at the project's real deployed domain once it has one.
+const ORIGIN = 'https://your-domain.example';
 const OUT_DIR = join(ROOT, 'daily');
 
 // js/data/players.js removes the loading overlay on load — stub the one DOM
@@ -38,10 +39,11 @@ if (!DB) throw new Error('player DB failed to load');
 
 const { CHALLENGES, getDailyChallenge, getLockedPlayer } =
   await import('../js/logic/challenge.js');
+const { SEASON_GAMES } = await import('../js/logic/simulation.js');
 
 // First day the Daily Challenge existed (first commit of js/logic/challenge.js).
 // Dates before this are not real history and are never generated.
-const LAUNCH = '2026-07-14';
+const LAUNCH = new Date().toISOString().slice(0, 10);
 const TODAY = new Date().toISOString().slice(0, 10);
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -151,32 +153,32 @@ function ruleFacts(ch) {
     for (const list of Object.values(DB)) for (const pl of list) min = Math.min(min, pl.popularity ?? 50);
     facts.push([`Fans budget`, `${p.maxPopTotal} total across all five starters (average ${Math.floor(p.maxPopTotal / 5)} each; the cheapest player in the game is ${min})`]);
   }
-  if (p.starterPpg != null) facts.push([`Scoring target`, `one starter must average ${p.starterPpg}+ points per game`]);
-  if (p.teamBpg != null)    facts.push([`Rim protection`, `your five must combine for ${p.teamBpg}+ blocks per game`]);
+  if (p.starterRuns != null) facts.push([`Batting target`, `one starter must average ${p.starterRuns}+ runs per match`]);
+  if (p.teamWkts != null)    facts.push([`Bowling target`, `your bowlers must combine for ${p.teamWkts}+ wickets per match`]);
   if (p.minChem != null)    facts.push([`Chemistry target`, `reach Perfect Team Chemistry (${p.minChem}+)`]);
-  if (p.minStreak != null)  facts.push([`Streak target`, `a ${p.minStreak}-game win streak at some point in the season`]);
-  if (p.minWins != null)    facts.push([`Win floor`, `${p.minWins} of 82 games`]);
+  if (p.minStreak != null)  facts.push([`Streak target`, `a ${p.minStreak}-match win streak at some point in the season`]);
+  if (p.minWins != null)    facts.push([`Win floor`, `${p.minWins} of ${SEASON_GAMES} matches`]);
   return facts;
 }
 
 /** Specific, non-generic guidance per challenge. */
 const STRATEGY = {
-  'nineties-only': 'The 1990s is the deepest era in the game, so the constraint costs you less than it looks. The real trap is positional — the decade is stacked with wings and centers, so lock down a true point guard early rather than assuming one will come around.',
-  'y2k-ball': 'The 2000s skew big and defensive. Spacing is the scarce resource: get a genuine shooter in the backcourt before you spend picks on another interior scorer, or the offense stalls in the sim.',
-  'old-school': 'Pre-1990 rosters put up huge rebounding and scoring numbers but almost no blocks or steals by modern bookkeeping. Because the win floor here is the lowest of any constraint (50), you can afford to draft for chemistry over raw stats.',
-  'modern-era': 'The 2010s–2020s pool is shooting-rich and rim-protection-poor. Take the best available big early — by the later rounds you will be choosing between guards.',
-  'budget-ball': 'This is the hardest constraint in the catalog, because fans and quality correlate. Spend most of the budget on one genuinely good starter and fill the other four from the cheapest end of the board. Chemistry matters more here than anywhere else: a cheap roster that fits together beats a cheap roster of mismatched parts.',
-  'no-la-boston': 'Losing the Lakers and Celtics removes more all-time talent than any other two franchises, and the win floor is a steep 60. Target the deep non-banned dynasties — the Bulls, Spurs, Warriors and Sixers all carry multiple eras.',
-  'win-65': 'No draft restriction at all, so this is purely a roster-quality test. Take the highest-rated player available every round and let chemistry break ties.',
-  'win-70': 'Only a handful of real teams have ever won 70. You need elite talent *and* clean chemistry — a five-star roster that clashes will land in the mid-60s. Match your coach to the roster you actually drafted, not the one you planned.',
-  'volume-scorer': 'You need one starter averaging 30+, which means drafting a genuine number-one option early rather than spreading talent evenly. Everything after round one should support that player, not compete with him for shots.',
-  'swat-team': '8+ combined blocks per game is a lot, so you effectively need two rim protectors, not one. Centers and shot-blocking power forwards from the 1990s and 2000s carry the highest block rates in the database.',
-  'chemistry-class': 'The only challenge where roster fit *is* the objective. Spread across eras, pair a rim protector with shooters, include a true playmaker, and pick the coach whose system matches what you drafted.',
-  'wire-to-wire': 'A 20-game streak is about consistency rather than peak talent — avoid a roster with one superstar and four weak links, since the sim punishes thin rosters over long stretches.',
-  'build-around-shaq': 'Shaq gives you dominant interior scoring and rebounding but no spacing, so the other four picks should lean shooting and playmaking. Do not draft a second traditional center.',
-  'build-around-lebron': 'LeBron covers playmaking and scoring from the wing, which frees you to draft a true center and shooters rather than another ball-dominant guard.',
-  'build-around-magic': 'Magic locks the point guard slot and handles distribution, so prioritise finishers — a scoring big and a wing who can shoot. The 60-win floor is comfortably reachable if you avoid stacking ball-handlers.',
-  'build-around-giannis': 'Giannis fills the power forward slot with two-way production but limited outside shooting. Surround him with shooters and a real point guard; a second non-shooting big will crowd the paint in the sim.',
+  'inaugural-era': 'The 2008-11 era is a shallower pool than later years, so the constraint bites harder than it looks. Lock down a genuine strike bowler early — this window is stacked with batters and short on death-overs specialists.',
+  'impact-era': 'The 2023-25 pool skews toward explosive top-order batting. Spacing the innings is the scarce resource: get a genuine anchor in before you spend picks on a second power hitter, or the innings collapses in the sim.',
+  'old-guard': 'The 2008-15 window puts up huge top-order numbers but is thin on frontline strike bowlers by modern standards. Because the win floor here is the lowest of any constraint (8), you can afford to draft for chemistry over raw stats.',
+  'new-gen': 'The 2020-25 pool is batting-rich and death-bowling-poor. Take the best available bowler early — by the later rounds you will be choosing between batters.',
+  'domestic-talent': 'This is the hardest constraint in the catalog, because fan following and quality correlate. Spend most of the budget on one genuinely good starter and fill the other four from the cheapest end of the board. Chemistry matters more here than anywhere else: a cheap XI that fits together beats a cheap XI of mismatched parts.',
+  'no-big-two': 'Losing Mumbai Indians and Chennai Super Kings removes more all-time title-winning talent than any other two franchises, and the win floor is a steep 10. Target the deep non-banned dynasties — RCB, KKR, and Sunrisers all carry multiple eras.',
+  'win-11': 'No draft restriction at all, so this is purely a roster-quality test. Take the highest-rated player available every round and let chemistry break ties.',
+  'win-12': 'Only a handful of real IPL sides have ever finished a league stage 12-2 or better. You need elite talent *and* clean chemistry — a five-superstar XI that clashes will land a couple of wins short. Match your captain to the XI you actually drafted, not the one you planned.',
+  'boundary-machine': 'You need one starter averaging 42+ runs, which means drafting a genuine number-one batter early rather than spreading talent evenly. Everything after round one should support that player, not compete with them for the strike.',
+  'strike-force': '5+ combined wickets per match is a lot, so you effectively need two genuine strike bowlers, not one. Pace and spin options tagged Death Bowler or Strike Bowler carry the highest wicket rates in the database.',
+  'chemistry-class': 'The only challenge where XI fit *is* the objective. Spread across eras, pair a strike bowler with power hitters, include a true anchor, and pick the captain whose system matches what you drafted.',
+  'wire-to-wire': 'A 10-match streak is about consistency rather than peak talent — avoid an XI with one superstar and four weak links, since the sim punishes thin rosters over a full season.',
+  'build-around-kohli': 'Kohli gives you dominant middle-order run-scoring but the other four picks should lean toward bowling depth and a genuine finisher. Do not draft a second ball-dominant Anchor.',
+  'build-around-dhoni': 'Dhoni covers the keeper slot and closes out chases, which frees you to draft top-order power and a strike bowler rather than another finisher.',
+  'build-around-bumrah': 'Bumrah locks the pace slot with elite death-overs control, so prioritize batting depth and a genuine spin threat. The 10-win floor is comfortably reachable if you don\'t neglect the top order.',
+  'build-around-gayle': 'Gayle fills the opening slot with explosive power-hitting but limited fielding impact. Surround him with a genuine anchor and strike bowlers; a second boundary-only hitter will leave the XI batting-heavy and bowling-light.',
 };
 
 const TYPE_LABEL = {
@@ -195,7 +197,7 @@ const TYPE_BLURB = {
 function renderPage(ch, slug, dates) {
   const facts = ruleFacts(ch);
   const locked = ch.type === 'locked' ? getLockedPlayer(ch) : null;
-  const title = `${ch.title} — 82-0 Daily Challenge`;
+  const title = `${ch.title} — 14-0 Daily Challenge`;
   // Kept under ~158 chars so Google renders it in full. The suffix is dropped
   // rather than truncated mid-sentence when a long rule leaves no room.
   const suffix = ` How the ${ch.title} daily challenge works and how to clear it.`;
@@ -204,8 +206,8 @@ function renderPage(ch, slug, dates) {
   const url = `${ORIGIN}/daily/${slug}.html`;
 
   const statLine = locked ? [
-    ['PPG', locked.ppg], ['RPG', locked.rpg], ['APG', locked.apg],
-    ['SPG', locked.spg], ['BPG', locked.bpg],
+    ['RUNS', locked.runs], ['SR', locked.sr], ['WKTS', locked.wkts],
+    ['ECON', locked.econ], ['FLD', locked.field],
   ].map(([k, v]) => `<span class="cp-stat"><b>${v}</b> ${k}</span>`).join('') : '';
 
   return `<!DOCTYPE html>
@@ -221,7 +223,7 @@ function renderPage(ch, slug, dates) {
   <meta name="robots" content="max-image-preview:large" />
 
   <meta property="og:type"        content="article" />
-  <meta property="og:site_name"   content="Can You Go 82-0?" />
+  <meta property="og:site_name"   content="Can You Go 14-0?" />
   <meta property="og:url"         content="${url}" />
   <meta property="og:title"       content="${esc(title)}" />
   <meta property="og:description" content="${esc(ch.desc)}" />
@@ -247,10 +249,10 @@ ${JSON.stringify({
   url,
   description: ch.desc,
   inLanguage: 'en',
-  isPartOf: { '@type': 'WebSite', name: 'Can You Go 82-0?', url: ORIGIN + '/' },
+  isPartOf: { '@type': 'WebSite', name: 'Can You Go 14-0?', url: ORIGIN + '/' },
   about: {
     '@type': 'VideoGame',
-    name: 'Can You Go 82-0?',
+    name: 'Can You Go 14-0?',
     url: ORIGIN + '/',
     applicationCategory: 'GameApplication',
     gamePlatform: 'Web Browser',

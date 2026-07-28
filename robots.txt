@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://canyougo820.com/sitemap.xml
+Sitemap: https://your-domain.example/sitemap.xml

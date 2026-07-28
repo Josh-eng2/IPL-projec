@@ -19,8 +19,8 @@ import {
   spinResult, spinResultAtLeast, getAvailablePlayers, availableDecades,
   playerTier, rosterFull, getSkips, useSkip,
 } from '../logic/draft.js';
-import { simulateSeason, simulateSeries, simulateHeadToHeadSeries, simulateDynastySeries } from '../logic/simulation.js';
-import { applyPlayoffRound } from '../logic/playoffs.js';
+import { simulateSeason, simulateSeries, simulateHeadToHeadSeries, simulateDynastySeries, SEASON_GAMES } from '../logic/simulation.js';
+import { createPlayoffState, currentMatchup, simulateCurrentMatch, applyMatchResult } from '../logic/playoffs.js';
 import {
   saveLeaderboard, saveToTrophyRoom, markReturning, recordLegends,
   showLeaderboardModal, closeLeaderboardModal,
@@ -378,7 +378,7 @@ function doStartGame(era = 'all') {
     if (!S.coach) {
       let remembered = null;
       try { remembered = localStorage.getItem('nba820_coach'); } catch (e) {}
-      S.coach = COACHES.some(c => c.id === remembered) ? remembered : 'jackson';
+      S.coach = COACHES.some(c => c.id === remembered) ? remembered : 'dhoni';
     }
     S.p1Coach = S.coach;
     S.p2Coach = pick(COACHES).id;
@@ -393,7 +393,7 @@ function doStartGame(era = 'all') {
   if (!S.coach) {
     let remembered = null;
     try { remembered = localStorage.getItem('nba820_coach'); } catch (e) {}
-    S.coach = COACHES.some(c => c.id === remembered) ? remembered : 'jackson';
+    S.coach = COACHES.some(c => c.id === remembered) ? remembered : 'dhoni';
   }
   startGame(era);
   logAnalyticsEvent('game_started', { era, coach: S.coach ?? 'none', mode: S.mode ?? 'solo' });
@@ -872,7 +872,10 @@ function doSimulate() {
 
   // Rivalry Night — one mid-season marquee game against an all-time great.
   // W/L stays exactly as drawn; only the opponent and score dress up.
-  const rg = S.seasonGames[28 + Math.floor(Math.random() * 31)]; // games 29–59
+  // Scaled to the ~35%-72%-of-season window the NBA original used (games 29-59 of 82).
+  const rgMin  = Math.floor(SEASON_GAMES * 0.35);
+  const rgSpan = Math.max(1, Math.floor(SEASON_GAMES * 0.72) - rgMin);
+  const rg = S.seasonGames[rgMin + Math.floor(Math.random() * rgSpan)];
   rg.rival  = true;
   // Cosmetic draw — the daily seed governs draft OFFERS only (state.js), so
   // season dressing must not consume from the deterministic stream.
@@ -1112,9 +1115,9 @@ function updateSeasonSimDOM() {
   const w = played.filter(g => g.won).length;
   recEl.textContent = `${w}–${played.length - w}`;
   const gpEl = document.getElementById('sim-gp');
-  if (gpEl) gpEl.textContent = `Game ${played.length} of 82`;
+  if (gpEl) gpEl.textContent = `Match ${played.length} of ${SEASON_GAMES}`;
   const barEl = document.getElementById('sim-progress');
-  if (barEl) barEl.style.width = `${(played.length / 82) * 100}%`;
+  if (barEl) barEl.style.width = `${(played.length / SEASON_GAMES) * 100}%`;
   tickEl.innerHTML = renderSeasonTickerRows();
 
   const streakEl = document.getElementById('sim-streak');
@@ -1134,7 +1137,7 @@ function updateSeasonSimDOM() {
     const prevBestWins = S._prevBestWins || 0;
     let bsText = '', bsColor = '#94a3b8';
     if (prevBestWins > 0 && played.length >= 5) {
-      const pace = Math.round(prevBestWins * played.length / 82);
+      const pace = Math.round(prevBestWins * played.length / SEASON_GAMES);
       const diff = w - pace;
       if (diff > 0) {
         bsText  = `↑ ${diff} ahead of ${prevBestWins}-win pace`;
@@ -1193,7 +1196,7 @@ async function doSaveRun() {
       teamName: S.teamName,
       wins: S.result.wins,
       losses: S.result.losses,
-      teamStocks: S.result.teamStocks ?? 0,
+      teamFielding: S.result.teamFielding ?? 0,
       date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
     });
   }
@@ -1386,12 +1389,12 @@ async function shareResultCard(data) {
   try { blob = await buildShareCardBlob(data); } catch (e) { /* canvas unsupported — degrade to text-only share below */ }
 
   if (blob) {
-    const file = new File([blob], 'can-you-go-82-0.png', { type: 'image/png' });
+    const file = new File([blob], 'can-you-go-14-0.png', { type: 'image/png' });
     if (navigator.canShare?.({ files: [file] })) {
-      try { await navigator.share({ title: '82-0', text: caption, files: [file] }); return; }
+      try { await navigator.share({ title: '14-0', text: caption, files: [file] }); return; }
       catch (e) { if (e?.name === 'AbortError') return; /* user cancelled — otherwise fall through to download */ }
     }
-    downloadBlob(blob, 'can-you-go-82-0.png');
+    downloadBlob(blob, 'can-you-go-14-0.png');
     if (navigator.clipboard) {
       navigator.clipboard.writeText(caption)
         .then(()  => showToast('🖼️ Card downloaded + caption copied!'))
@@ -1403,10 +1406,10 @@ async function shareResultCard(data) {
   }
 
   if (navigator.share) {
-    navigator.share({ title: '82-0', text: caption }).catch(() => {});
+    navigator.share({ title: '14-0', text: caption }).catch(() => {});
   } else if (navigator.clipboard) {
     navigator.clipboard.writeText(caption)
-      .then(()  => showToast('Copied to clipboard! 🏀'))
+      .then(()  => showToast('Copied to clipboard! 🏏'))
       .catch(() => showToast('Failed to copy to clipboard'));
   } else {
     showToast('Failed to copy to clipboard');
@@ -1422,13 +1425,6 @@ function downloadBlob(blob, filename) {
 }
 
 // ── Playoffs ──────────────────────────────────────────────────────────────────
-
-function computeRoundResults(bracket) {
-  return bracket.map(([teamA, teamB]) => {
-    const series = simulateSeries(teamA.strength, teamB.strength);
-    return { teamA, teamB, ...series };
-  });
-}
 
 function onPlayoffChampion() {
   saveToTrophyRoom();
@@ -1457,74 +1453,51 @@ function fireChampionConfetti() {
 }
 
 function doAdvanceToPlayoffs() {
-  if (!S.result || S.result.wins < 20) {
-    showToast('Need at least 20 wins to enter the playoffs');
+  if (!S.result || S.result.wins < 4) {
+    showToast('Need at least 4 wins to enter the playoffs');
     return;
   }
   const playerStrength = S.result.strength;
   const playerSeed     = getPlayerSeed(S.result.wins);
-  const bracket        = buildBracket(playerSeed, playerStrength);
+  const seeds          = buildBracket(playerSeed, playerStrength);
 
-  S.playoffs = {
-    playerSeed,
-    playerStrength,
-    initialBracket: bracket.map(pair => pair.map(t => ({ ...t }))),
-    rounds:       [],
-    currentRound: 0,
-    bracket,
-    eliminated:    false,
-    champion:      false,
-    championTeam:  null,
-    tickState:     null,
-    pendingReveal: false, // true right after "Simulate Entire Playoffs" — holds on the filled bracket before the champion/eliminated splash
-    roundNames:   ['Conference Quarterfinals', 'Conference Semifinals', 'NBA Finals'],
-  };
+  S.playoffs = createPlayoffState(seeds);
+  S.playoffs.playerSeed     = playerSeed;
+  S.playoffs.playerStrength = playerStrength;
+  S.playoffs.pendingReveal  = false; // true right after "Simulate Entire Playoffs" — holds on the filled bracket before the champion/eliminated splash
   S.phase = 'playoffs';
   render();
 }
 
 function doSimNextRound() {
   const po = S.playoffs;
-  if (po.tickState) return;
+  if (po.tickState || po.stage === 'complete') return;
 
-  const results = computeRoundResults(po.bracket);
-
-  const playerResult = results.find(r => r.teamA.isPlayer || r.teamB.isPlayer);
-  const playerWon    = playerResult
-    ? (playerResult.teamA.isPlayer ? playerResult.won : !playerResult.won)
-    : true;
-
-  const maxGames = Math.max(...results.map(r => r.games.length));
-  po.tickState   = { results, revealedGames: 0, maxGames, done: false, playerWon };
+  const result = simulateCurrentMatch(po);
+  po.tickState = { result, revealed: false };
   render();
 
-  const ticker = setInterval(() => {
-    if (S.phase !== 'playoffs') { clearInterval(ticker); return; }
-    po.tickState.revealedGames++;
+  setTimeout(() => {
+    if (S.phase !== 'playoffs') return;
+    po.tickState.revealed = true;
     render();
-    if (po.tickState.revealedGames >= po.tickState.maxGames) {
-      clearInterval(ticker);
-      po.tickState.done = true;
+    setTimeout(() => {
+      if (S.phase !== 'playoffs') return;
+      po.tickState = null;
+      const outcome = applyMatchResult(po, result);
+      if (outcome === 'champion') { onPlayoffChampion(); fireChampionConfetti(); }
       render();
-      setTimeout(() => {
-        if (S.phase !== 'playoffs') return;
-        const { results: r2 } = po.tickState;
-        po.tickState = null;
-        const outcome = applyPlayoffRound(po, r2);
-        if (outcome === 'champion') { onPlayoffChampion(); fireChampionConfetti(); }
-        render();
-      }, 800);
-    }
-  }, 400);
+    }, 800);
+  }, 600);
 }
 
 function doSimAllPlayoffs() {
   const po = S.playoffs;
-  if (po.tickState || po.currentRound >= 3) return;
+  if (po.tickState || po.stage === 'complete') return;
 
-  while (po.currentRound < 3) {
-    const results = computeRoundResults(po.bracket);
-    applyPlayoffRound(po, results);
+  while (po.stage !== 'complete') {
+    const result = simulateCurrentMatch(po);
+    applyMatchResult(po, result);
   }
   if (po.champion) onPlayoffChampion();
   po.pendingReveal = true;

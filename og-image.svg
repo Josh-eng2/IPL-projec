@@ -22,15 +22,14 @@
     <circle r="175" fill="url(#crestBg)" stroke="#f97316" stroke-width="12"/>
     <circle r="154" fill="none" stroke="#f97316" stroke-width="2.4" opacity="0.32"/>
     <g transform="translate(0,-69)">
-      <circle r="50" fill="#f97316"/>
-      <circle r="50" fill="none" stroke="#9a3412" stroke-width="3"/>
-      <line x1="-50" y1="0" x2="50" y2="0" stroke="#9a3412" stroke-width="2.7"/>
-      <path d="M0 -50 Q-31 0 0 50" fill="none" stroke="#9a3412" stroke-width="2.7"/>
-      <path d="M0 -50 Q31 0 0 50" fill="none" stroke="#9a3412" stroke-width="2.7"/>
+      <circle r="50" fill="#b91c1c"/>
+      <circle r="50" fill="none" stroke="#7f1d1d" stroke-width="3"/>
+      <path d="M-27 -43 A50 50 0 0 0 -27 43" fill="none" stroke="#f5efe1" stroke-width="2.7" stroke-dasharray="4,3.5"/>
+      <path d="M27 -43 A50 50 0 0 1 27 43" fill="none" stroke="#f5efe1" stroke-width="2.7" stroke-dasharray="4,3.5"/>
     </g>
     <text x="0" y="57" text-anchor="middle"
       font-family="'Arial Black','Helvetica Neue',Arial,sans-serif"
-      font-weight="900" font-size="79" letter-spacing="-3.5" fill="#f5efe1">82-0</text>
+      font-weight="900" font-size="79" letter-spacing="-3.5" fill="#f5efe1">14-0</text>
   </g>
   <text font-family="'Arial Black','Helvetica Neue',Arial,sans-serif"
     font-weight="700" font-size="21" letter-spacing="6" fill="#f97316">
@@ -50,23 +49,17 @@
     font-size="30" font-weight="900" fill="#f97316"
     letter-spacing="10">CAN YOU GO</text>
 
-  <!-- "82-0" hero text -->
+  <!-- "14-0" hero text -->
   <text x="80" y="415"
     font-family="'Arial Black', 'Helvetica Neue', Arial, sans-serif"
     font-size="248" font-weight="900" fill="#ffffff"
-    letter-spacing="-12">82-0</text>
+    letter-spacing="-12">14-0</text>
 
   <!-- Subtitle -->
   <text x="104" y="476"
     font-family="'Helvetica Neue', Arial, sans-serif"
     font-size="21" font-weight="400" fill="#64748b"
-    letter-spacing="7">THE ALL-TIME NBA ROSTER BUILDER</text>
-
-  <!-- Domain -->
-  <text x="104" y="522"
-    font-family="'Helvetica Neue', Arial, sans-serif"
-    font-size="15" font-weight="400" fill="#334155"
-    letter-spacing="3">canyougo820.com</text>
+    letter-spacing="7">THE ALL-TIME IPL ROSTER BUILDER</text>
 
   <!-- Orange dot accent beside subtitle -->
   <circle cx="91" cy="470" r="5" fill="#f97316"/>

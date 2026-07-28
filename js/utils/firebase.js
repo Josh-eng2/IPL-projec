@@ -148,14 +148,19 @@ function loadSdk() {
 }
 
 // ── Firebase project config ────────────────────────────────────────────────────
+// Intentionally unconfigured placeholders: this project was forked from a
+// different game and must not write to that game's live Firebase project.
+// Wire up your own Firebase project's config here to enable the optional
+// global leaderboard/analytics — the app works fully without it (local-only
+// leaderboard), see isFirebaseConfigured() below.
 const FIREBASE_CONFIG = {
-  apiKey:            'AIzaSyBt1pbWJjeR7ELe0g1ZoRZsQpiiAGvbmNQ',
-  authDomain:        'basketball-gm-sim-c33ed.firebaseapp.com',
-  projectId:         'basketball-gm-sim-c33ed',
-  storageBucket:     'basketball-gm-sim-c33ed.firebasestorage.app',
-  messagingSenderId: '686961038101',
-  appId:             '1:686961038101:web:9287fec583fea933fc8f1c',
-  measurementId:     'G-NWPZD758GE',
+  apiKey:            'YOUR_API_KEY',
+  authDomain:        'YOUR_PROJECT_ID.firebaseapp.com',
+  projectId:         'YOUR_PROJECT_ID',
+  storageBucket:     'YOUR_PROJECT_ID.firebasestorage.app',
+  messagingSenderId: 'YOUR_SENDER_ID',
+  appId:             'YOUR_APP_ID',
+  measurementId:     'YOUR_MEASUREMENT_ID',
 };
 
 // ── Configuration check ───────────────────────────────────────────────────────

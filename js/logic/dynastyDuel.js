@@ -6,18 +6,18 @@ import { CPU_TEAMS } from './state.js';
 
 /** Curated rotation — references CPU_TEAMS by name. */
 const DYNASTY_ROTATION = [
-  '96 Bulls',
-  '17 Warriors',
-  '86 Celtics',
-  '87 Lakers',
-  '01 Lakers',
-  '13 Heat',
-  '14 Spurs',
-  '04 Pistons',
-  '16 Cavaliers',
-  '08 Celtics',
-  '94 Rockets',
-  '89 Pistons',
+  '10 CSK',
+  '19 MI',
+  '11 CSK',
+  '15 MI',
+  '13 MI',
+  '21 CSK',
+  '23 CSK',
+  '17 MI',
+  '20 MI',
+  '16 SRH',
+  '22 GT',
+  '08 RR',
 ];
 
 function findCpu(name) {

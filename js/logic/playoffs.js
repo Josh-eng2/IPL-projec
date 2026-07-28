@@ -1,144 +1,146 @@
 /**
- * js/logic/playoffs.js — Playoff bracket display & round advancement helpers
+ * js/logic/playoffs.js — Real IPL-format playoffs: Qualifier 1, Eliminator,
+ * Qualifier 2, Final. Four teams, three knockout matches, every match a
+ * single one-off game (never a best-of-series) — exactly how the actual
+ * IPL playoff stage works.
+ *
+ *   Qualifier 1:  seed 1 vs seed 2  → winner books the Final directly,
+ *                                     loser gets a second life in Qualifier 2
+ *   Eliminator:   seed 3 vs seed 4  → loser is out, winner advances
+ *   Qualifier 2:  Q1 loser vs Eliminator winner → winner meets the Final
+ *   Final:        Q1 winner vs Q2 winner → champion
  */
 
-// Must mirror buildBracket()'s matchup order (state.js): adjacent pairs feed
-// the same semifinal, so 1v8 → 4v5 on top, 3v6 → 2v7 on the bottom.
-export const QF_SEED_PAIRS = [[1, 8], [4, 5], [3, 6], [2, 7]];
+import { simulateMatch } from './simulation.js';
 
-/** @param {object} result  series result with teamA, teamB, won */
-export function seriesWinner(result) {
-  return result.won ? result.teamA : result.teamB;
-}
+export const STAGES = ['qualifier1', 'eliminator', 'qualifier2', 'final'];
 
-/** Scores for top/bottom teams in a matchup result. */
-export function matchupScores(result, topTeam, bottomTeam) {
-  const topIsA = result.teamA.name === topTeam.name;
+export const STAGE_LABEL = {
+  qualifier1: 'Qualifier 1',
+  eliminator: 'Eliminator',
+  qualifier2: 'Qualifier 2',
+  final:      'Final',
+};
+
+/**
+ * Builds the initial playoff state from a 4-team seeded field.
+ * @param {object[]} seeds  4 teams, index 0 = seed 1 (from state.js buildBracket)
+ * @returns {object} po
+ */
+export function createPlayoffState(seeds) {
   return {
-    topScore:    topIsA ? result.playerWins : result.oppWins,
-    bottomScore: topIsA ? result.oppWins   : result.playerWins,
-    topWon:      topIsA ? result.won       : !result.won,
+    seeds,
+    stage:        'qualifier1',
+    matches:      {},   // stage → { teamA, teamB, won, teamScore, oppScore }
+    eliminated:   false,
+    eliminatedIn: null,
+    champion:     false,
+    championTeam: null,
+    tickState:    null,
   };
 }
 
-/**
- * Builds a full bracket tree for rendering (QF → SF → Finals → Champion).
- * @param {object} po  S.playoffs
- */
-export function getBracketDisplayState(po) {
-  const qf = po.initialBracket.map(([top, bottom], i) => {
-    const result = po.rounds[0]?.[i];
-    const slot   = {
-      top, bottom,
-      topSeed:    QF_SEED_PAIRS[i][0],
-      bottomSeed: QF_SEED_PAIRS[i][1],
-      topScore:   null,
-      bottomScore: null,
-      topWon:     null,
-      complete:   false,
-      live:       false,
-    };
-    if (result) {
-      const s = matchupScores(result, top, bottom);
-      slot.topScore    = s.topScore;
-      slot.bottomScore = s.bottomScore;
-      slot.topWon      = s.topWon;
-      slot.complete    = true;
+/** The two teams facing off in the current stage, or null if the playoffs are over. */
+export function currentMatchup(po) {
+  const [s1, s2, s3, s4] = po.seeds;
+  switch (po.stage) {
+    case 'qualifier1': return [s1, s2];
+    case 'eliminator':  return [s3, s4];
+    case 'qualifier2': {
+      const q1Loser = po.matches.qualifier1.won ? po.matches.qualifier1.teamB : po.matches.qualifier1.teamA;
+      const elimWinner = po.matches.eliminator.won ? po.matches.eliminator.teamA : po.matches.eliminator.teamB;
+      return [q1Loser, elimWinner];
     }
-    return slot;
-  });
-
-  const sf = [0, 1].map(mi => {
-    const r0 = po.rounds[0]?.[mi * 2];
-    const r1 = po.rounds[0]?.[mi * 2 + 1];
-    const top    = r0 ? seriesWinner(r0) : null;
-    const bottom = r1 ? seriesWinner(r1) : null;
-    const result = po.rounds[1]?.[mi];
-    const slot   = { top, bottom, topScore: null, bottomScore: null, topWon: null, complete: false, live: false };
-    if (result && top && bottom) {
-      const s = matchupScores(result, top, bottom);
-      slot.topScore    = s.topScore;
-      slot.bottomScore = s.bottomScore;
-      slot.topWon      = s.topWon;
-      slot.complete    = true;
+    case 'final': {
+      const q1Winner = po.matches.qualifier1.won ? po.matches.qualifier1.teamA : po.matches.qualifier1.teamB;
+      const q2Winner = po.matches.qualifier2.won ? po.matches.qualifier2.teamA : po.matches.qualifier2.teamB;
+      return [q1Winner, q2Winner];
     }
-    return slot;
-  });
-
-  const sf0 = po.rounds[1]?.[0];
-  const sf1 = po.rounds[1]?.[1];
-  const finalsTop    = sf0 ? seriesWinner(sf0) : null;
-  const finalsBottom = sf1 ? seriesWinner(sf1) : null;
-  const finalsResult = po.rounds[2]?.[0];
-  const finals = {
-    top: finalsTop, bottom: finalsBottom,
-    topScore: null, bottomScore: null, topWon: null,
-    complete: false, live: false,
-  };
-  if (finalsResult && finalsTop && finalsBottom) {
-    const s = matchupScores(finalsResult, finalsTop, finalsBottom);
-    finals.topScore    = s.topScore;
-    finals.bottomScore = s.bottomScore;
-    finals.topWon      = s.topWon;
-    finals.complete    = true;
+    default: return null;
   }
+}
 
-  let champion = null;
-  if (finalsResult && finalsTop && finalsBottom) {
-    champion = seriesWinner(finalsResult);
-  } else if (po.championTeam) {
-    champion = po.championTeam;
-  }
-
-  // Live tick-state overlay for the active round
-  const ts = po.tickState;
-  if (ts?.results) {
-    const ri = po.currentRound;
-    ts.results.forEach((sr, i) => {
-      const rev = sr.games.slice(0, ts.revealedGames);
-      const topScore    = rev.filter(g => g === 'W').length;
-      const bottomScore = rev.filter(g => g === 'L').length;
-      const patch = { topScore, bottomScore, live: !ts.done, complete: ts.done };
-      if (ri === 0 && qf[i]) Object.assign(qf[i], patch, { topWon: ts.done ? sr.won : null });
-      if (ri === 1 && sf[i]) Object.assign(sf[i], patch, { topWon: ts.done ? sr.won : null });
-      if (ri === 2 && i === 0) Object.assign(finals, patch, { topWon: ts.done ? sr.won : null });
-    });
-  }
-
-  return { qf, sf, finals, champion, currentRound: po.currentRound };
+/** Simulates the current stage's single match and returns the raw result (not yet applied). */
+export function simulateCurrentMatch(po) {
+  const [teamA, teamB] = currentMatchup(po);
+  const { won, teamScore, oppScore } = simulateMatch(teamA.strength, teamB.strength);
+  return { teamA, teamB, won, teamScore, oppScore };
 }
 
 /**
- * Applies a completed round's results and advances bracket state.
- * Always simulates the full bracket — player elimination does not halt advancement.
- * @returns {'champion'|'complete'|'eliminated'|'advanced'}
+ * Applies a completed stage's result and advances to the next stage.
+ * Always resolves the full bracket regardless of player elimination — a
+ * Qualifier 1 loss is NOT elimination (the player gets a second life in
+ * Qualifier 2); only an Eliminator, Qualifier 2, or Final loss ends the run.
+ * @returns {'champion'|'eliminated'|'advanced'|'complete'}
  */
-export function applyPlayoffRound(po, results) {
-  po.rounds.push(results);
+export function applyMatchResult(po, result) {
+  const stage = po.stage;
+  po.matches[stage] = result;
+  const winner = result.won ? result.teamA : result.teamB;
+  const loser  = result.won ? result.teamB : result.teamA;
 
-  const playerResult = results.find(r => r.teamA.isPlayer || r.teamB.isPlayer);
-  if (playerResult && !po.eliminated) {
-    const playerWon = playerResult.teamA.isPlayer ? playerResult.won : !playerResult.won;
-    if (!playerWon) {
-      po.eliminated   = true;
-      po.eliminatedIn = po.roundNames[po.currentRound];
-    }
+  if (loser.isPlayer && !po.eliminated &&
+      (stage === 'eliminator' || stage === 'qualifier2' || stage === 'final')) {
+    po.eliminated   = true;
+    po.eliminatedIn = STAGE_LABEL[stage];
   }
 
-  const winners = results.map(r => (r.won ? r.teamA : r.teamB));
-
-  if (po.currentRound >= 2) {
-    po.championTeam = winners[0] ?? null;
-    po.champion     = !!po.championTeam?.isPlayer;
-    po.currentRound = 3;
-    return po.champion ? 'champion' : 'complete';
+  if (stage === 'final') {
+    po.championTeam = winner;
+    po.champion     = !!winner.isPlayer;
+    po.stage = 'complete';
+    return po.champion ? 'champion' : (po.eliminated ? 'eliminated' : 'complete');
   }
 
-  po.currentRound++;
-  po.bracket = [];
-  for (let i = 0; i < winners.length; i += 2) {
-    if (winners[i + 1]) po.bracket.push([winners[i], winners[i + 1]]);
-  }
+  const order = ['qualifier1', 'eliminator', 'qualifier2', 'final'];
+  po.stage = order[order.indexOf(stage) + 1];
 
   return po.eliminated ? 'eliminated' : 'advanced';
+}
+
+/**
+ * Builds the display state for render.js — one row per stage with whatever
+ * has been decided so far.
+ * @param {object} po
+ */
+export function getBracketDisplayState(po) {
+  const rows = STAGES.map(stage => {
+    const m = po.matches[stage];
+    if (m) {
+      return {
+        stage, label: STAGE_LABEL[stage],
+        teamA: m.teamA, teamB: m.teamB,
+        scoreA: m.teamScore, scoreB: m.oppScore,
+        winner: m.won ? m.teamA : m.teamB,
+        complete: true,
+        live: false,
+      };
+    }
+    if (po.stage === stage && po.stage !== 'complete') {
+      const pair = currentMatchup(po);
+      return {
+        stage, label: STAGE_LABEL[stage],
+        teamA: pair?.[0] ?? null, teamB: pair?.[1] ?? null,
+        scoreA: null, scoreB: null, winner: null,
+        complete: false,
+        live: !!po.tickState,
+      };
+    }
+    // Eliminator's teams (seed 3 vs seed 4) are fixed from the initial seeding —
+    // show them even before Qualifier 1 has been played, unlike Qualifier 2 and
+    // the Final, whose entrants genuinely depend on earlier results.
+    if (stage === 'eliminator') {
+      return {
+        stage, label: STAGE_LABEL[stage],
+        teamA: po.seeds[2] ?? null, teamB: po.seeds[3] ?? null,
+        scoreA: null, scoreB: null, winner: null,
+        complete: false,
+        live: false,
+      };
+    }
+    return { stage, label: STAGE_LABEL[stage], teamA: null, teamB: null, scoreA: null, scoreB: null, winner: null, complete: false, live: false };
+  });
+
+  return { rows, champion: po.championTeam ?? null, stage: po.stage };
 }

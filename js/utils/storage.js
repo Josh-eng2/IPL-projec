@@ -46,8 +46,8 @@ const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>
 function leadersLineHtml(leaders) {
   if (!leaders) return '';
   const cats = [
-    ['🏀', leaders.pts], ['🪃', leaders.reb], ['🎯', leaders.ast],
-    ['🧤', leaders.stl], ['🛡️', leaders.blk],
+    ['🏏', leaders.batting], ['⚡', leaders.striking], ['🎯', leaders.bowling],
+    ['🔒', leaders.economy], ['🧤', leaders.fielding],
   ].filter(([, e]) => e && e.name);
   if (!cats.length) return '';
   const pills = cats.map(([icon, e]) =>
@@ -176,7 +176,7 @@ export function saveModeLeaderboard(mode, entry) {
   } else if (mode === 'gm-ai') {
     lb.sort((a, b) => (b.won === a.won ? 0 : b.won ? 1 : -1) || (b.margin ?? 0) - (a.margin ?? 0) || (b.strength ?? 0) - (a.strength ?? 0));
   } else {
-    lb.sort((a, b) => (b.wins ?? 0) - (a.wins ?? 0) || (b.teamStocks ?? 0) - (a.teamStocks ?? 0));
+    lb.sort((a, b) => (b.wins ?? 0) - (a.wins ?? 0) || (b.teamFielding ?? 0) - (a.teamFielding ?? 0));
   }
   if (lb.length > 20) lb = lb.slice(0, 20);
   try { cgSetItem(key, JSON.stringify(lb)); } catch (e) {

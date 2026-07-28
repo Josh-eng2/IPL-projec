@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220">
-  <!-- 82-0 roundel crest — header badge (js/ui/render.js renders this at 52px tall) -->
+  <!-- 14-0 roundel crest — header badge (js/ui/render.js renders this at 52px tall) -->
   <defs>
     <radialGradient id="crestBg" cx="50%" cy="36%" r="72%">
       <stop offset="0%" stop-color="#1e2d4d"/>
@@ -18,19 +18,18 @@
   <!-- inner hairline ring -->
   <circle cx="110" cy="110" r="90" fill="none" stroke="#f97316" stroke-width="1.4" opacity="0.35"/>
 
-  <!-- basketball -->
+  <!-- cricket ball -->
   <g>
-    <circle cx="110" cy="70" r="29" fill="#f97316"/>
-    <circle cx="110" cy="70" r="29" fill="none" stroke="#9a3412" stroke-width="1.8"/>
-    <line x1="81" y1="70" x2="139" y2="70" stroke="#9a3412" stroke-width="1.6"/>
-    <path d="M110 41 Q92 70 110 99" fill="none" stroke="#9a3412" stroke-width="1.6"/>
-    <path d="M110 41 Q128 70 110 99" fill="none" stroke="#9a3412" stroke-width="1.6"/>
+    <circle cx="110" cy="70" r="29" fill="#b91c1c"/>
+    <circle cx="110" cy="70" r="29" fill="none" stroke="#7f1d1d" stroke-width="1.8"/>
+    <path d="M84 58 A29 29 0 0 0 84 82" fill="none" stroke="#f5efe1" stroke-width="1.6" stroke-dasharray="2.5,2.2"/>
+    <path d="M136 58 A29 29 0 0 1 136 82" fill="none" stroke="#f5efe1" stroke-width="1.6" stroke-dasharray="2.5,2.2"/>
   </g>
 
-  <!-- 82-0 -->
+  <!-- 14-0 -->
   <text x="110" y="143" text-anchor="middle"
     font-family="'Arial Black','Helvetica Neue',Arial,sans-serif"
-    font-weight="900" font-size="46" letter-spacing="-2" fill="#f5efe1">82-0</text>
+    font-weight="900" font-size="46" letter-spacing="-2" fill="#f5efe1">14-0</text>
 
   <!-- curved EST. 2025 -->
   <text font-family="'Arial Black','Helvetica Neue',Arial,sans-serif"

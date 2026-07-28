@@ -15,16 +15,21 @@ import { getLockedPlayer, todayUTC } from './challenge.js';
 // ── Static configuration ──────────────────────────────────────────────────────
 
 export const TEAMS = [
-  'Lakers','Bulls','Warriors','Celtics','Heat','Spurs','Knicks',
-  'Jazz','Pistons','Magic','Suns','Nuggets','Sixers',
-  'Rockets','Thunder','Bucks','Mavericks','Cavaliers',
-  'Blazers','Nets','Kings','Raptors','Hawks','Hornets','Pacers','Clippers','Timberwolves','Pelicans',
-  'Grizzlies','Wizards',
+  'Mumbai Indians','Chennai Super Kings','Royal Challengers Bengaluru','Kolkata Knight Riders',
+  'Delhi Capitals','Punjab Kings','Rajasthan Royals','Sunrisers Hyderabad',
+  'Gujarat Titans','Lucknow Super Giants',
 ];
 
-export const DECADES = ['1960s','1970s','1980s','1990s','2000s','2010s','2020s'];
+// IPL "eras" replace NBA decades — five multi-year windows spanning the
+// league's history from its 2008 launch to today.
+export const DECADES = ['2008-11','2012-15','2016-19','2020-22','2023-25'];
 
-export const POSITIONS     = ['PG','SG','SF','PF','C'];
+// Starting XI core, per user spec: 2 Batters, 1 Wicketkeeper, 2 Bowlers.
+// OPEN/MID mirror PG/SG (both "batter" roles, distinct slots); PACE/SPIN
+// mirror PF/C (both "bowler" roles, distinct slots) — same 5-slot shape
+// as the NBA original, so the rest of the engine (chemistry, sim, draft)
+// carries over structurally unchanged.
+export const POSITIONS     = ['OPEN','MID','WK','PACE','SPIN'];
 export const ALL_POSITIONS  = [...POSITIONS]; // starters-only format — no bench
 export const TOTAL_ROUNDS   = 5;
 
@@ -37,134 +42,116 @@ export const TOTAL_ROUNDS   = 5;
 export const SNAKE_ORDER = [1, 2, 2, 1, 1, 2, 2, 1, 1, 2];
 
 export const ERA_DESC = {
-  '1960s': 'Chamberlain · West · Russell',
-  '1970s': 'Kareem · Erving · Frazier',
-  '1980s': 'Bird · Magic · Jordan',
-  '1990s': 'Jordan · Shaq · Barkley',
-  '2000s': 'Kobe · AI · T-Mac',
-  '2010s': 'LeBron · Curry · Durant',
-  '2020s': 'Jokic · LeBron · Booker',
+  '2008-11': 'Warne · Gilchrist · Sehwag',
+  '2012-15': 'Gambhir · Chris Gayle · Dhoni',
+  '2016-19': 'Kohli · Warner · Bumrah',
+  '2020-22': 'Rohit · KL Rahul · Rashid Khan',
+  '2023-25': 'Gill · Head · Narine',
 };
 
 export const TEAM_COLORS = {
-  Lakers:     { bg: '#552583', accent: '#FDB927' },
-  Bulls:      { bg: '#CE1141', accent: '#ffffff' },
-  Warriors:   { bg: '#1D428A', accent: '#FFC72C' },
-  Celtics:    { bg: '#007A33', accent: '#ffffff' },
-  Heat:       { bg: '#98002E', accent: '#F9A01B' },
-  Spurs:      { bg: '#C4CED4', accent: '#000000' },
-  Knicks:     { bg: '#006BB6', accent: '#F58426' },
-  Jazz:       { bg: '#002B5C', accent: '#F9A01B' },
-  Pistons:    { bg: '#C8102E', accent: '#1D428A' },
-  Magic:      { bg: '#0077C0', accent: '#C4CED4' },
-  Suns:       { bg: '#1D1160', accent: '#E56020' },
-  Nuggets:    { bg: '#0E2240', accent: '#FEC524' },
-  Sixers:     { bg: '#006BB6', accent: '#ED174C' },
-  Rockets:    { bg: '#CE1141', accent: '#000000' },
-  Thunder:    { bg: '#007AC3', accent: '#FDBB30' },
-  Bucks:      { bg: '#00471B', accent: '#EEE1C6' },
-  Mavericks:  { bg: '#00538C', accent: '#B8C4CA' },
-  Cavaliers:  { bg: '#860038', accent: '#FDBB30' },
-  Blazers:    { bg: '#E03A3E', accent: '#000000' },
-  Nets:       { bg: '#000000', accent: '#ffffff' },
-  Kings:      { bg: '#5A2D81', accent: '#63727A' },
-  Raptors:    { bg: '#CE1141', accent: '#000000' },
-  Hawks:      { bg: '#E03A3E', accent: '#C1D32F' },
-  Hornets:    { bg: '#1D1160', accent: '#00788C' },
-  Pacers:     { bg: '#002D62', accent: '#FDBB30' },
-  Clippers:      { bg: '#C8102E', accent: '#1D428A' },
-  Timberwolves:  { bg: '#0C2340', accent: '#78BE20' },
-  Pelicans:      { bg: '#002B5C', accent: '#B4975A' },
-  Grizzlies:     { bg: '#5D76A9', accent: '#12173F' },
-  Wizards:       { bg: '#002B5C', accent: '#E31837' },
+  'Mumbai Indians':               { bg: '#004BA0', accent: '#D1AB3E' },
+  'Chennai Super Kings':          { bg: '#FFFF3C', accent: '#0081E9' },
+  'Royal Challengers Bengaluru':  { bg: '#EC1C24', accent: '#000000' },
+  'Kolkata Knight Riders':        { bg: '#2E0854', accent: '#FFB81C' },
+  'Delhi Capitals':               { bg: '#17479E', accent: '#EF1C25' },
+  'Punjab Kings':                 { bg: '#ED1B24', accent: '#A7A9AC' },
+  'Rajasthan Royals':             { bg: '#254AA5', accent: '#EA1A85' },
+  'Sunrisers Hyderabad':          { bg: '#FF822A', accent: '#000000' },
+  'Gujarat Titans':               { bg: '#1B2133', accent: '#B4A469' },
+  'Lucknow Super Giants':         { bg: '#00458E', accent: '#A72056' },
 };
 
 export const ARCHETYPE_STYLE = {
-  'Playmaker':         { bg: '#dbeafe', text: '#1d4ed8' },
-  'Sharpshooter':      { bg: '#fef3c7', text: '#92400e' },
-  'Lockdown Defender': { bg: '#f3e8ff', text: '#6d28d9' },
-  'Slasher':           { bg: '#ede9fe', text: '#5b21b6' },
-  'Paint Beast':       { bg: '#dcfce7', text: '#15803d' },
-  'Two-Way Star':      { bg: '#ffedd5', text: '#9a3412' },
+  'Anchor':             { bg: '#dbeafe', text: '#1d4ed8' },
+  'Power Hitter':       { bg: '#fef3c7', text: '#92400e' },
+  'Strike Bowler':      { bg: '#f3e8ff', text: '#6d28d9' },
+  'Finisher':           { bg: '#ede9fe', text: '#5b21b6' },
+  'Death Bowler':       { bg: '#dcfce7', text: '#15803d' },
+  'Complete Cricketer': { bg: '#ffedd5', text: '#9a3412' },
 };
 
+// Captains replace NBA coaches — each brings a tactical system tied to a
+// real IPL era, mirroring the coach-system bonus structure 1:1.
 export const COACHES = [
   {
-    id:     'auerbach',
-    name:   'Red Auerbach',
-    era:    '1960s',
-    system: 'Celtic Pride',
-    desc:   'Defense-first — Twin Towers, Defensive Anchor, and All-Defensive Team bonuses amplified; interior defense penalties negated.',
+    id:     'warne',
+    name:   'Shane Warne',
+    era:    '2008-11',
+    system: 'Spin Web',
+    desc:   'Spin-first — Spin Wizard and Lockdown Bowler bonuses amplified; bowling-control penalties negated.',
     accent: '#4ade80',
   },
   {
-    id:     'holzman',
-    name:   'Red Holzman',
-    era:    '1970s',
-    system: 'Hit the Open Man',
-    desc:   'Unselfish ball-movement — Floor General and Perimeter Lockdown bonuses amplified ×1.5.',
+    id:     'gambhir',
+    name:   'Gautam Gambhir',
+    era:    '2012-15',
+    system: 'Fearless Cricket',
+    desc:   'Backs young match-winners — Captain Material and X-Factor bonuses amplified ×1.5.',
     accent: '#0369a1',
   },
   {
-    id:     'riley',
-    name:   'Pat Riley',
-    era:    '1980s',
-    system: 'Grit & Grind / Showtime',
-    desc:   'Defense and transition driven — Showtime Transition and All-Defensive Team amplified ×1.5; Defensive Liability penalty negated.',
+    id:     'dhoni',
+    name:   'MS Dhoni',
+    era:    '2012-15',
+    system: 'Ice-Cool Calm',
+    desc:   'Composure under pressure — Chase Master and Clutch bonuses amplified ×1.5; Chasing Jitters penalty negated.',
     accent: '#f87171',
   },
   {
-    id:     'jackson',
-    name:   'Phil Jackson',
-    era:    '1990s',
-    system: 'Triangle Offense',
-    desc:   'Star-driven — Dynamic Duo and Heliocentric Engine bonuses amplified ×1.5; Clashing Egos penalty softened to −2%.',
+    id:     'kohli',
+    name:   'Virat Kohli',
+    era:    '2016-19',
+    system: 'Aggressive Intent',
+    desc:   'Star-driven — Explosive Top Order and Six-Hitting Machine bonuses amplified ×1.5; Ego Clash penalty softened to −2%.',
     accent: '#c084fc',
   },
   {
-    id:     'popovich',
-    name:   'Gregg Popovich',
-    era:    '2000s',
-    system: 'The Beautiful Game',
-    desc:   'Offense-first — The Beautiful Game rewards efficient team scoring; Floor General bonus amplified ×1.5.',
+    id:     'warner',
+    name:   'David Warner',
+    era:    '2020-22',
+    system: 'Boundary Blitz',
+    desc:   'Powerplay-first — Powerplay Specialist and Six-Hitting Machine bonuses amplified ×1.5.',
     accent: '#60a5fa',
   },
   {
-    id:     'kerr',
-    name:   'Steve Kerr',
-    era:    '2010s',
-    system: 'Motion Offense',
-    desc:   'Spacing and ball-movement driven — Small Ball Heat, Three-and-D Paradigm, and Floor General bonuses amplified; Defensive Sieve penalty heightened.',
+    id:     'rohit',
+    name:   'Rohit Sharma',
+    era:    '2020-22',
+    system: 'Big-Match Temperament',
+    desc:   'Knockout-tested — Death-Over Specialist and New-Ball Specialist bonuses amplified; Death-Overs Panic penalty heightened.',
     accent: '#fbbf24',
   },
   {
-    id:     'rivers',
-    name:   'Doc Rivers',
-    era:    '2020s',
-    system: 'Ubuntu',
-    desc:   'Cohesion-first — Dynamic Duo and All-Defensive Team bonuses amplified ×1.5; Clashing Egos penalty fully negated.',
+    id:     'pandya',
+    name:   'Hardik Pandya',
+    era:    '2023-25',
+    system: 'Calm Under Fire',
+    desc:   'Balance-first — Complete Cricketer and Team Man bonuses amplified ×1.5; Ego Clash penalty fully negated.',
     accent: '#34d399',
   },
 ];
 
 // ── Playoff CPU opponents ─────────────────────────────────────────────────────
+// Legendary IPL title-winning squads — used as Dynasty Duel opponents and to
+// fill out the playoff field alongside the player's team.
 
 export const CPU_TEAMS = [
-  { name: '96 Bulls',       strength: 2.38 },
-  { name: '17 Warriors',    strength: 2.37 },
-  { name: '86 Celtics',     strength: 2.25 },
-  { name: '87 Lakers',      strength: 2.20 },
-  { name: '01 Lakers',      strength: 2.15 },
-  { name: '13 Heat',        strength: 2.00 },
-  { name: '14 Spurs',       strength: 1.95 },
-  { name: '04 Pistons',     strength: 1.94 },
-  { name: '16 Cavaliers',   strength: 1.93 },
-  { name: '94 Rockets',     strength: 1.92 },
-  { name: '11 Mavericks',   strength: 1.91 },
-  { name: '08 Celtics',     strength: 1.90 },
-  { name: '05 Spurs',       strength: 1.89 },
-  { name: '03 Spurs',       strength: 1.88 },
-  { name: '89 Pistons',     strength: 1.87 },
+  { name: '10 CSK',   strength: 2.38 },
+  { name: '19 MI',    strength: 2.37 },
+  { name: '11 CSK',   strength: 2.25 },
+  { name: '15 MI',    strength: 2.20 },
+  { name: '13 MI',    strength: 2.15 },
+  { name: '21 CSK',   strength: 2.00 },
+  { name: '23 CSK',   strength: 1.95 },
+  { name: '17 MI',    strength: 1.94 },
+  { name: '20 MI',    strength: 1.93 },
+  { name: '16 SRH',   strength: 1.92 },
+  { name: '22 GT',    strength: 1.91 },
+  { name: '08 RR',    strength: 1.90 },
+  { name: '12 KKR',   strength: 1.89 },
+  { name: '14 KKR',   strength: 1.88 },
+  { name: '24 KKR',   strength: 1.87 },
 ];
 
 // ── Utility ───────────────────────────────────────────────────────────────────
@@ -233,54 +220,39 @@ export const pickCosmetic = arr => arr[Math.floor(Math.random() * arr.length)];
 // ── Playoff helpers ───────────────────────────────────────────────────────────
 
 /**
- * Returns a playoff seed (1–8) based on the regular-season win total.
+ * Returns a playoff seed (1–4) based on the league-stage win total out of
+ * a 14-match IPL season. Mirrors real IPL points-table qualification: the
+ * top 4 teams advance regardless of how the rest of the table finished.
  * @param {number} wins
  * @returns {number}
  */
 export function getPlayerSeed(wins) {
-  // Smooth ladder across seeds 1–8 (previously cliffed ≥41→#4 / else→#8,
-  // leaving seeds 5–7 unused and making mid-.500 teams feel like lottery picks).
-  if (wins >= 70) return 1;
-  if (wins >= 60) return 2;
-  if (wins >= 55) return 3;
-  if (wins >= 50) return 4;
-  if (wins >= 45) return 5;
-  if (wins >= 42) return 6;
-  if (wins >= 40) return 7;
-  return 8;
+  if (wins >= 12) return 1;
+  if (wins >= 10) return 2;
+  if (wins >= 8)  return 3;
+  return 4;
 }
 
 /**
- * Builds the first-round bracket of four matchups.
- * The player occupies their seed slot; remaining 7 slots are filled by the
- * top CPU teams sorted by strength.
+ * Builds the 4-team playoff field (real IPL format: Qualifier 1, Eliminator,
+ * Qualifier 2, Final — no best-of-series, every match is a single knockout).
+ * The player occupies their seed slot; remaining 3 slots are filled by the
+ * top legendary CPU squads sorted by strength.
  *
- * @param {number} playerSeed       1–8
+ * @param {number} playerSeed       1–4
  * @param {number} playerStrength   adjusted Elo-like strength number
- * @returns {Array<[object, object]>}  four [teamA, teamB] pairs
+ * @returns {object[]}  four seeded teams, index 0 = seed 1
  */
 export function buildBracket(playerSeed, playerStrength) {
   const cpuSorted = [...CPU_TEAMS].sort((a, b) => b.strength - a.strength);
-  // seeds is 0-indexed; index 0 = seed 1
-  const seeds = Array(8).fill(null);
+  const seeds = Array(4).fill(null);
   seeds[playerSeed - 1] = { name: 'Your Team', strength: playerStrength, isPlayer: true };
 
   let cpuIdx = 0;
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 4; i++) {
     if (!seeds[i]) seeds[i] = { ...cpuSorted[cpuIdx++], isPlayer: false };
   }
-
-  // Classic 1v8, 4v5, 3v6, 2v7 bracket — adjacent pairs advance together
-  // (applyPlayoffRound pairs winners [0,1] and [2,3]), so this order makes the
-  // 1v8 winner meet the 4v5 winner in the semis and keeps the top two seeds
-  // apart until the Finals. The previous [1v8, 2v7, 3v6, 4v5] order forced the
-  // #1 and #2 seeds to eliminate each other a round early.
-  return [
-    [seeds[0], seeds[7]],
-    [seeds[3], seeds[4]],
-    [seeds[2], seeds[5]],
-    [seeds[1], seeds[6]],
-  ];
+  return seeds;
 }
 
 // ── Mutable game state (ES module live binding) ───────────────────────────────
@@ -350,7 +322,7 @@ export function startGame(era = 'all') {
     availablePlayers: [],
     draftBoard:       [],       // pick board — all available players from the current spin's team/decade
     selectedPlayer:   null,
-    roster: { PG: null, SG: null, SF: null, PF: null, C: null },
+    roster: { OPEN: null, MID: null, WK: null, PACE: null, SPIN: null },
     result:  null,
     playoffs: null,
     teamName: '',
@@ -403,8 +375,8 @@ export function startGame1v1() {
     mode,
     currentPlayer: 1,
     p1Coach, p1Era, p2Coach, p2Era,
-    p1Roster: { PG: null, SG: null, SF: null, PF: null, C: null },
-    p2Roster: { PG: null, SG: null, SF: null, PF: null, C: null },
+    p1Roster: { OPEN: null, MID: null, WK: null, PACE: null, SPIN: null },
+    p2Roster: { OPEN: null, MID: null, WK: null, PACE: null, SPIN: null },
     p1Round:  0,
     p2Round:  0,
     draftLog: [],
@@ -430,7 +402,7 @@ export function startGame1v1() {
     selectedPlayer: null,
 
     // Solo-mode fields kept to avoid undefined refs
-    roster: { PG: null, SG: null, SF: null, PF: null, C: null },
+    roster: { OPEN: null, MID: null, WK: null, PACE: null, SPIN: null },
     round: 0,
     result: null,
     playoffs: null,

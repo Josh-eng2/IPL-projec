@@ -56,58 +56,58 @@ function minPopularity() {
 // (era-adjusted 2K rating, mean ≈87), NOT the stats-derived `rating` scale.
 export const CHALLENGES = [
   // ── Draft constraints ──
-  { id: 'nineties-only',  type: 'constraint', emoji: '📼', title: "'90s Night",
-    desc: 'Only 1990s players — win 55+ games.',
-    params: { era: '1990s', minWins: 55 } },
-  { id: 'y2k-ball',       type: 'constraint', emoji: '💿', title: 'Y2K Ball',
-    desc: 'Only 2000s players — win 55+ games.',
-    params: { era: '2000s', minWins: 55 } },
-  { id: 'old-school',     type: 'constraint', emoji: '🎩', title: 'Old School',
-    desc: 'Pre-1990 players only (60s–80s) — win 50+ games.',
-    params: { allowedDecades: ['1960s', '1970s', '1980s'], minWins: 50 } },
-  { id: 'modern-era',     type: 'constraint', emoji: '🚀', title: 'Modern Era',
-    desc: 'Only 2010s and 2020s players — win 55+ games.',
-    params: { allowedDecades: ['2010s', '2020s'], minWins: 55 } },
-  { id: 'budget-ball',    type: 'constraint', emoji: '👎', title: 'Boos Only',
-    desc: 'Total roster fans under 300 — win 50+ games.',
-    params: { maxPopTotal: 300, minWins: 50 } },
-  { id: 'no-la-boston',   type: 'constraint', emoji: '🙅', title: 'Flyover Hoops',
-    desc: 'No Lakers, no Celtics — win 60+ games.',
-    params: { excludeTeams: ['Lakers', 'Celtics'], minWins: 60 } },
+  { id: 'inaugural-era',  type: 'constraint', emoji: '📼', title: 'Inaugural Era',
+    desc: 'Only 2008-11 players — win 9+ matches.',
+    params: { era: '2008-11', minWins: 9 } },
+  { id: 'impact-era',     type: 'constraint', emoji: '💿', title: 'Impact Player Era',
+    desc: 'Only 2023-25 players — win 9+ matches.',
+    params: { era: '2023-25', minWins: 9 } },
+  { id: 'old-guard',      type: 'constraint', emoji: '🎩', title: 'Old Guard',
+    desc: 'Only 2008-15 players — win 8+ matches.',
+    params: { allowedDecades: ['2008-11', '2012-15'], minWins: 8 } },
+  { id: 'new-gen',        type: 'constraint', emoji: '🚀', title: 'New Gen',
+    desc: 'Only 2020-25 players — win 9+ matches.',
+    params: { allowedDecades: ['2020-22', '2023-25'], minWins: 9 } },
+  { id: 'domestic-talent', type: 'constraint', emoji: '👎', title: 'Domestic Talent',
+    desc: 'Total roster fans under 300 — win 8+ matches.',
+    params: { maxPopTotal: 300, minWins: 8 } },
+  { id: 'no-big-two',     type: 'constraint', emoji: '🙅', title: 'No Big Two',
+    desc: 'No Mumbai Indians, no Chennai Super Kings — win 10+ matches.',
+    params: { excludeTeams: ['Mumbai Indians', 'Chennai Super Kings'], minWins: 10 } },
 
   // ── Result objectives ──
-  { id: 'win-65',         type: 'objective', emoji: '🎯', title: '65-Win Season',
-    desc: 'Any roster — win at least 65 games.',
-    params: { minWins: 65 } },
-  { id: 'win-70',         type: 'objective', emoji: '🏔️', title: 'Air Rare',
-    desc: 'Any roster — win at least 70 games.',
-    params: { minWins: 70 } },
-  { id: 'volume-scorer',  type: 'objective', emoji: '🔥', title: 'Bucket Getter',
-    desc: 'A starter must average 30+ PPG this season — and win 50+ games.',
-    params: { minWins: 50, starterPpg: 30 } },
-  { id: 'swat-team',      type: 'objective', emoji: '🖐️', title: 'Swat Team',
-    desc: 'Your five must combine for 8+ blocks per game — and win 50+ games.',
-    params: { minWins: 50, teamBpg: 8 } },
+  { id: 'win-11',         type: 'objective', emoji: '🎯', title: '11-Win Season',
+    desc: 'Any XI — win at least 11 matches.',
+    params: { minWins: 11 } },
+  { id: 'win-12',         type: 'objective', emoji: '🏔️', title: 'Air Rare',
+    desc: 'Any XI — win at least 12 matches.',
+    params: { minWins: 12 } },
+  { id: 'boundary-machine', type: 'objective', emoji: '🔥', title: 'Boundary Machine',
+    desc: 'A starter must average 42+ runs this season — and win 8+ matches.',
+    params: { minWins: 8, starterRuns: 42 } },
+  { id: 'strike-force',   type: 'objective', emoji: '🖐️', title: 'Strike Force',
+    desc: 'Your bowlers must combine for 5+ wickets per match — and win 8+ matches.',
+    params: { minWins: 8, teamWkts: 5 } },
   { id: 'chemistry-class', type: 'objective', emoji: '🧪', title: 'Chemistry Class',
-    desc: 'Reach Perfect Team Chemistry and win 55+ games.',
-    params: { minWins: 55, minChem: 95 } },
+    desc: 'Reach Perfect Team Chemistry and win 9+ matches.',
+    params: { minWins: 9, minChem: 95 } },
   { id: 'wire-to-wire',   type: 'objective', emoji: '⚡', title: 'Wire to Wire',
-    desc: 'Put together a 20-game win streak at some point in the season.',
-    params: { minWins: 50, minStreak: 20 } },
+    desc: 'Put together a 10-match win streak at some point in the season.',
+    params: { minWins: 8, minStreak: 10 } },
 
   // ── Locked-player builds ──
-  { id: 'build-around-shaq',    type: 'locked', emoji: '🪓', title: 'Shaq Attack',
-    desc: "Shaquille O'Neal ('94 Magic) is locked at center. Build around him — win 60+ games.",
-    params: { playerId: 'shaq_94', pos: 'C', minWins: 60 } },
-  { id: 'build-around-lebron',  type: 'locked', emoji: '👑', title: 'The King\'s Court',
-    desc: "LeBron James ('18 Lakers) is locked at small forward. Win 60+ games.",
-    params: { playerId: 'lebron_18', pos: 'SF', minWins: 60 } },
-  { id: 'build-around-magic',   type: 'locked', emoji: '🎩', title: 'Showtime',
-    desc: "Magic Johnson ('87 Lakers) is locked at point guard. Win 60+ games.",
-    params: { playerId: 'magic_87', pos: 'PG', minWins: 60 } },
-  { id: 'build-around-giannis', type: 'locked', emoji: '🦌', title: 'Greek Freak',
-    desc: 'Giannis (\'19 Bucks) is locked at power forward. Win 60+ games.',
-    params: { playerId: 'giannis_19', pos: 'PF', minWins: 60 } },
+  { id: 'build-around-kohli',  type: 'locked', emoji: '👑', title: 'King Kohli',
+    desc: "Virat Kohli ('16 RCB) is locked in the middle order. Build around him — win 10+ matches.",
+    params: { playerId: 'kohli_16', pos: 'MID', minWins: 10 } },
+  { id: 'build-around-dhoni',  type: 'locked', emoji: '🧊', title: "Thala's Call",
+    desc: "MS Dhoni ('11 CSK) is locked behind the stumps. Win 10+ matches.",
+    params: { playerId: 'dhoni_11', pos: 'WK', minWins: 10 } },
+  { id: 'build-around-bumrah', type: 'locked', emoji: '🎯', title: 'Yorker King',
+    desc: "Jasprit Bumrah ('20 MI) is locked as the pace spearhead. Win 10+ matches.",
+    params: { playerId: 'bumrah_20', pos: 'PACE', minWins: 10 } },
+  { id: 'build-around-gayle',  type: 'locked', emoji: '💪', title: 'Universe Boss',
+    desc: "Chris Gayle ('13 RCB) is locked to open the innings. Win 10+ matches.",
+    params: { playerId: 'gayle_13', pos: 'OPEN', minWins: 10 } },
 ];
 
 // ── Date & seeded selection ───────────────────────────────────────────────────
@@ -298,8 +298,8 @@ export function checkRosterConstraint(challenge, starters) {
 // ── Post-sim evaluation ───────────────────────────────────────────────────────
 
 /**
- * Pass/fail for the day, decided at the end of the regular season (the
- * daily board deliberately captures the shared 82-game run only — playoffs
+ * Pass/fail for the day, decided at the end of the league stage (the
+ * daily board deliberately captures the shared 14-match run only — playoffs
  * stay out of it, matching markDailyPlayed's lock-at-sim-time rule).
  *
  * Reads S.result (wins, playerStats, simTotals, chemScore, longestStreak)
@@ -317,12 +317,12 @@ export function evaluateObjective(challenge, S) {
 
   if (r.wins < (P.minWins ?? 0)) failures.push(`Won ${r.wins} — needed ${P.minWins}`);
 
-  if (P.starterPpg != null) {
-    const best = (r.playerStats || []).reduce((m, l) => Math.max(m, l.ppg), 0);
-    if (best < P.starterPpg) failures.push(`Top scorer averaged ${best.toFixed(1)} — needed ${P.starterPpg}+`);
+  if (P.starterRuns != null) {
+    const best = (r.playerStats || []).reduce((m, l) => Math.max(m, l.runs), 0);
+    if (best < P.starterRuns) failures.push(`Top scorer averaged ${best.toFixed(1)} — needed ${P.starterRuns}+`);
   }
-  if (P.teamBpg != null && (r.simTotals?.bpg ?? 0) < P.teamBpg) {
-    failures.push(`Team blocked ${(r.simTotals?.bpg ?? 0).toFixed(1)}/game — needed ${P.teamBpg}+`);
+  if (P.teamWkts != null && (r.simTotals?.wkts ?? 0) < P.teamWkts) {
+    failures.push(`Bowlers took ${(r.simTotals?.wkts ?? 0).toFixed(1)}/match — needed ${P.teamWkts}+`);
   }
   if (P.minChem != null && (r.chemScore ?? 0) < P.minChem) {
     failures.push('Team Chemistry too low — stack more synergies');

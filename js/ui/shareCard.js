@@ -134,11 +134,11 @@ function drawCard(ctx, data) {
   ctx.lineWidth = 4; ctx.strokeStyle = '#f97316'; ctx.stroke();
   ctx.font = '32px Arial, sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('🏀', 116, brandMidY + 2);
+  ctx.fillText('🏏', 116, brandMidY + 2);
 
   ctx.font = "900 28px 'Arial Black', Arial, sans-serif";
   ctx.fillStyle = '#f97316';
-  fillTextTracked(ctx, 'CAN YOU GO 82-0?', 172, brandMidY, 3, 'left');
+  fillTextTracked(ctx, 'CAN YOU GO 14-0?', 172, brandMidY, 3, 'left');
 
   if (dailyLabel) {
     // Fixed short badge regardless of the full caption text — dailyLabel can be
@@ -156,7 +156,7 @@ function drawCard(ctx, data) {
 
   // ── Tier pill ──
   ctx.font = "900 32px 'Arial Black', Arial, sans-serif";
-  const pillText = `${tierEmoji}  ${(isChampion ? 'NBA CHAMPIONS' : tierLabel).toUpperCase()}`;
+  const pillText = `${tierEmoji}  ${(isChampion ? 'IPL CHAMPIONS' : tierLabel).toUpperCase()}`;
   const pillW = trackedWidth(ctx, pillText, 2) + 80;
   roundRect(ctx, W / 2 - pillW / 2, cy, pillW, 76, 38);
   ctx.fillStyle = tc.bg; ctx.fill();
@@ -244,7 +244,7 @@ function drawCard(ctx, data) {
   ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
   ctx.font = "900 29px 'Arial Black', Arial, sans-serif";
   ctx.fillStyle = '#f5efe1';
-  fillTextTracked(ctx, 'canyougo820.com', W / 2, cy + 44, 2, 'center');
+  fillTextTracked(ctx, 'CAN YOU GO 14-0?', W / 2, cy + 44, 2, 'center');
   ctx.font = '500 19px Arial, sans-serif';
   ctx.fillStyle = '#64748b';
   ctx.fillText('Can you beat this record? Play free →', W / 2, cy + 72);
@@ -266,7 +266,7 @@ export function buildShareCardBlob(data) {
 export function buildShareCaption(data) {
   const { wins, losses, tierLabel, tierEmoji, chemScore, isChampion, starters, dailyLabel } = data;
   const headline = isChampion
-    ? `🏆 ${wins}-${losses} — NBA CHAMPIONS`
+    ? `🏆 ${wins}-${losses} — IPL CHAMPIONS`
     : `${tierEmoji} ${wins}-${losses} — ${tierLabel}`;
   const starterLines = starters
     .map(s => `🌟 ${s.name}${s.team ? ` (${[s.team, s.decade].filter(Boolean).join(' ')})` : ''}`)
@@ -282,6 +282,6 @@ export function buildShareCaption(data) {
     starterLines,
     chemLine,
     '',
-    'Can you beat it? → canyougo820.com',
+    'Can you beat it? → Can You Go 14-0?',
   ].filter(l => l !== null).join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }

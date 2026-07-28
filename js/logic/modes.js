@@ -13,7 +13,7 @@ export const MODE_CONFIG = {
   '1v1':           { draft: 'dual',   postDraft: 'series',        pity: false, skips: 1, simProfile: 'classic' },
   'gm-ai':         { draft: 'dual',   postDraft: 'series',        pity: false, skips: 1, simProfile: 'classic' },
   'dynasty-duel':  { draft: 'solo',   postDraft: 'dynastySeries', pity: true,  skips: 0, simProfile: 'classic' },
-  defense:         { draft: 'solo',   postDraft: 'season',        pity: true,  skips: 1, simProfile: 'defense' },
+  defense:         { draft: 'solo',   postDraft: 'season',        pity: true,  skips: 1, simProfile: 'bowling' },
   fans:            { draft: 'solo',   postDraft: 'season',        pity: true,  skips: 1, simProfile: 'fans' },
 };
 
@@ -31,9 +31,9 @@ export const MORE_MODES = [
   { id: 'gm-ai',          action: 'mode-gm-ai',          label: 'GM vs AI',      emoji: '🤖',
     desc: 'Draft against a CPU general manager, then face its lineup in a best-of-7.' },
   { id: 'dynasty-duel',   action: 'mode-dynasty-duel',   label: 'Dynasty Duel',  emoji: '👑',
-    desc: 'Beat a random legendary team in a best-of-7 — play as often as you want.' },
-  { id: 'defense',        action: 'mode-defense',        label: 'Defense Only',  emoji: '🛡️',
-    desc: 'Stocks & boards win it — scoring volume matters less this sim.' },
+    desc: 'Beat a random legendary IPL champion side in a best-of-7 — play as often as you want.' },
+  { id: 'defense',        action: 'mode-defense',        label: 'Bowling Only',  emoji: '🎯',
+    desc: 'Wickets & economy win it — batting volume matters less this sim.' },
   { id: 'fans',           action: 'mode-fans',           label: 'Fans First',    emoji: '📣',
     desc: 'Optimize star power — score by popularity, fans, and wins.' },
 ];
