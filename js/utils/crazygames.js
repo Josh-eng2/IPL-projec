@@ -7,7 +7,7 @@
  * The SDK reports one of three environments via getEnvironment():
  *   'crazygames' — embedded in the CrazyGames iframe
  *   'local'      — local development
- *   'disabled'   — any other domain, including our own (canyougo820.com)
+ *   'disabled'   — any other domain, including our own
  * Calling the SDK's methods while disabled throws, so every export below
  * checks the environment first and silently no-ops elsewhere. This lets the
  * same calls stay in the code whether the game is running on our own site
