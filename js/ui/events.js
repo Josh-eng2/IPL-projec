@@ -19,7 +19,7 @@ import {
   spinResult, spinResultAtLeast, getAvailablePlayers, availableDecades,
   playerTier, rosterFull, getSkips, useSkip,
 } from '../logic/draft.js';
-import { simulateSeason, simulateSeries, simulateHeadToHeadSeries, simulateDynastySeries, SEASON_GAMES } from '../logic/simulation.js';
+import { simulateSeason, simulateHeadToHeadSeries, simulateDynastySeries, SEASON_GAMES } from '../logic/simulation.js';
 import { createPlayoffState, currentMatchup, simulateCurrentMatch, applyMatchResult } from '../logic/playoffs.js';
 import {
   saveLeaderboard, saveToTrophyRoom, markReturning, recordLegends,
@@ -120,33 +120,33 @@ function dispatch(action) {
   }
   // ── Mode selection ─────────────────────────────────────────────────────────
   if (action === 'mode-solo') {
-    S.mode = 'solo'; S.currentPlayer = 1; S.p1 = null; S.dailyChallenge = null;
+    S.mode = 'solo'; S.currentPlayer = 1; S.dailyChallenge = null;
     doStartGame('all'); return;
   }
   if (action === 'mode-1v1') {
-    S.mode = '1v1'; S.currentPlayer = 1; S.p1 = null; S.dailyChallenge = null;
+    S.mode = '1v1'; S.currentPlayer = 1; S.dailyChallenge = null;
     doStartGame('all'); return;
   }
   if (action === 'mode-blind') {
-    S.mode = 'blind'; S.currentPlayer = 1; S.p1 = null; S.dailyChallenge = null;
+    S.mode = 'blind'; S.currentPlayer = 1; S.dailyChallenge = null;
     doStartGame('all'); return;
   }
   if (action === 'mode-gm-ai') {
-    S.mode = 'gm-ai'; S.currentPlayer = 1; S.p1 = null; S.dailyChallenge = null; S.dynastyOpponent = null;
+    S.mode = 'gm-ai'; S.currentPlayer = 1; S.dailyChallenge = null; S.dynastyOpponent = null;
     doStartGame('all'); return;
   }
   if (action === 'mode-defense') {
-    S.mode = 'defense'; S.currentPlayer = 1; S.p1 = null; S.dailyChallenge = null; S.dynastyOpponent = null;
+    S.mode = 'defense'; S.currentPlayer = 1; S.dailyChallenge = null; S.dynastyOpponent = null;
     doStartGame('all'); return;
   }
   if (action === 'mode-fans') {
-    S.mode = 'fans'; S.currentPlayer = 1; S.p1 = null; S.dailyChallenge = null; S.dynastyOpponent = null;
+    S.mode = 'fans'; S.currentPlayer = 1; S.dailyChallenge = null; S.dynastyOpponent = null;
     doStartGame('all'); return;
   }
   if (action === 'mode-dynasty-duel') {
     const status = getDynastyDuelStatus();
     const opponent = pickDynastyForPlay({ excludeName: status.lastOpponentName });
-    S.mode = 'dynasty-duel'; S.currentPlayer = 1; S.p1 = null; S.dailyChallenge = null;
+    S.mode = 'dynasty-duel'; S.currentPlayer = 1; S.dailyChallenge = null;
     S.dynastyOpponent = opponent;
     doStartGame('all');
     S.teamSkips = 0;
@@ -166,7 +166,7 @@ function dispatch(action) {
     if (getDailyStatus().playedToday) { render(); return; } // already played — mode-select shouldn't even show the button
     const today = getUtcDateString();
     const ch    = getDailyChallenge(today);
-    S.mode = 'daily'; S.currentPlayer = 1; S.p1 = null;
+    S.mode = 'daily'; S.currentPlayer = 1;
     // The day's challenge must be on S BEFORE startGame runs — locked-player
     // challenges pre-fill their star inside the state reset.
     S.dailyChallenge = ch;
@@ -207,17 +207,17 @@ function dispatch(action) {
   // Dynasty Duel is unlimited — Restart / new roster are allowed.
   if (action === 'restart') {
     if (S.mode === 'daily') return;
-    confirmLeave(() => { S.mode = null; S.phase = 'mode-select'; S.p1 = null; S.dailyChallenge = null; S.dynastyOpponent = null; render(); gdShowAd(); }); return;
+    confirmLeave(() => { S.mode = null; S.phase = 'mode-select'; S.dailyChallenge = null; S.dynastyOpponent = null; render(); gdShowAd(); }); return;
   }
   if (action === 'draft-new-roster') {
     if (S.mode === 'daily') return;
-    S.mode = null; S.phase = 'mode-select'; S.p1 = null; S.dailyChallenge = null; S.dynastyOpponent = null; render(); gdShowAd(); return;
+    S.mode = null; S.phase = 'mode-select'; S.dailyChallenge = null; S.dynastyOpponent = null; render(); gdShowAd(); return;
   }
   if (action === 'view-trophies')    { S.phase = 'trophy-room'; render(); return; }
   if (action === 'view-legends')     { S.legendsReturnPhase = S.phase; S.phase = 'legends'; render(); return; }
   if (action === 'legends-back')     { S.phase = S.legendsReturnPhase || 'mode-select'; render(); return; }
-  if (action === 'back-to-menu')     { S.mode = null; S.phase = 'mode-select'; S.p1 = null; S.dailyChallenge = null; S.dynastyOpponent = null; render(); gdShowAd(); return; }
-  if (action === 'series-play-again') { S.mode = null; S.phase = 'mode-select'; S.p1 = null; S.seriesResult = null; S.seriesRevealedCount = 0; S.dynastyOpponent = null; render(); gdShowAd(); return; }
+  if (action === 'back-to-menu')     { S.mode = null; S.phase = 'mode-select'; S.dailyChallenge = null; S.dynastyOpponent = null; render(); gdShowAd(); return; }
+  if (action === 'series-play-again') { S.mode = null; S.phase = 'mode-select'; S.seriesResult = null; S.seriesRevealedCount = 0; S.dynastyOpponent = null; render(); gdShowAd(); return; }
   if (action === 'begin-series') { S.phase = 'series-sim'; S.seriesRevealedCount = 0; render(); return; }
   if (action === 'sim-next-game') { S.seriesRevealedCount = Math.min((S.seriesRevealedCount || 0) + 1, S.seriesResult.games.length); render(); return; }
   // renderSeriesResult fires its own once-per-series confetti for every mode
