@@ -24,11 +24,11 @@ export const TEAMS = [
 // league's history from its 2008 launch to today.
 export const DECADES = ['2008-11','2012-15','2016-19','2020-22','2023-25'];
 
-// Starting XI core, per user spec: 2 Batters, 1 Wicketkeeper, 2 Bowlers.
-// OPEN/MID mirror PG/SG (both "batter" roles, distinct slots); PACE/SPIN
-// mirror PF/C (both "bowler" roles, distinct slots) — same 5-slot shape
-// as the NBA original, so the rest of the engine (sim, draft) carries over
-// structurally unchanged.
+// The drafted core of a starting XI: 2 batters, 1 wicketkeeper, 2 bowlers.
+//   OPEN — opening batter        MID  — middle-order batter
+//   WK   — wicketkeeper-batter   PACE — pace bowler      SPIN — spin bowler
+// Five slots is the whole roster: there is no bench, and the sim scores the
+// team purely off these five (see js/logic/simulation.js).
 export const POSITIONS     = ['OPEN','MID','WK','PACE','SPIN'];
 export const ALL_POSITIONS  = [...POSITIONS]; // starters-only format — no bench
 export const TOTAL_ROUNDS   = 5;
@@ -74,23 +74,31 @@ export const ARCHETYPE_STYLE = {
 // ── Playoff CPU opponents ─────────────────────────────────────────────────────
 // Legendary IPL title-winning squads — used as Dynasty Duel opponents and to
 // fill out the playoff field alongside the player's team.
-
+//
+// Strengths are on the same scale simulateSeason() produces for a drafted XI,
+// so they must stay inside the range this player DB can actually reach
+// (median draft ≈ 1.40, excellent ≈ 1.63, theoretical optimum ≈ 1.84 — see
+// the SIM_CENTER note in js/logic/simulation.js). The ladder below spans
+// 1.53–1.85: the weakest dynasties are beatable by a good draft, and the
+// greatest sides ('10 CSK, '19 MI) are a coin-flip only for a near-perfect
+// XI. Ordering is preserved from the original ranking; buildBracket() takes
+// the top three, so those are what a playoff run actually faces.
 export const CPU_TEAMS = [
-  { name: '10 CSK',   strength: 2.38 },
-  { name: '19 MI',    strength: 2.37 },
-  { name: '11 CSK',   strength: 2.25 },
-  { name: '15 MI',    strength: 2.20 },
-  { name: '13 MI',    strength: 2.15 },
-  { name: '21 CSK',   strength: 2.00 },
-  { name: '23 CSK',   strength: 1.95 },
-  { name: '17 MI',    strength: 1.94 },
-  { name: '20 MI',    strength: 1.93 },
-  { name: '16 SRH',   strength: 1.92 },
-  { name: '22 GT',    strength: 1.91 },
-  { name: '08 RR',    strength: 1.90 },
-  { name: '12 KKR',   strength: 1.89 },
-  { name: '14 KKR',   strength: 1.88 },
-  { name: '24 KKR',   strength: 1.87 },
+  { name: '10 CSK',   strength: 1.85 },
+  { name: '19 MI',    strength: 1.84 },
+  { name: '11 CSK',   strength: 1.77 },
+  { name: '15 MI',    strength: 1.74 },
+  { name: '13 MI',    strength: 1.71 },
+  { name: '21 CSK',   strength: 1.63 },
+  { name: '23 CSK',   strength: 1.61 },
+  { name: '17 MI',    strength: 1.60 },
+  { name: '20 MI',    strength: 1.59 },
+  { name: '16 SRH',   strength: 1.58 },
+  { name: '22 GT',    strength: 1.57 },
+  { name: '08 RR',    strength: 1.56 },
+  { name: '12 KKR',   strength: 1.55 },
+  { name: '14 KKR',   strength: 1.54 },
+  { name: '24 KKR',   strength: 1.53 },
 ];
 
 // ── Utility ───────────────────────────────────────────────────────────────────
@@ -185,7 +193,9 @@ export function getPlayerSeed(wins) {
 export function buildBracket(playerSeed, playerStrength) {
   const cpuSorted = [...CPU_TEAMS].sort((a, b) => b.strength - a.strength);
   const seeds = Array(4).fill(null);
-  seeds[playerSeed - 1] = { name: 'Your Team', strength: playerStrength, isPlayer: true };
+  // Short label on purpose: the bracket's team column is ~5rem wide, and
+  // "Your Team" ellipsised to "Your T…" in every knockout row.
+  seeds[playerSeed - 1] = { name: 'Your XI', strength: playerStrength, isPlayer: true };
 
   let cpuIdx = 0;
   for (let i = 0; i < 4; i++) {
@@ -204,10 +214,15 @@ export function buildBracket(playerSeed, playerStrength) {
 
 /** @type {object} */
 export let S = {
-  phase:          'mode-select', // 'mode-select' | 'more-modes' | 'drafting' | 'season-sim' | 'results' | 'playoffs' | 'trophy-room' | 'series-result'
-  mode:           null,          // 'solo' | '1v1'
-  currentPlayer:  1,             // 1 or 2 (1v1 only)
-  p1:             null,          // snapshot of P1 after sequential draft (old 1v1 flow — kept for compat)
+  // Every phase render() dispatches on — keep in sync with HASH_BY_PHASE and
+  // the render() dispatcher in js/ui/render.js.
+  //   'mode-select' | 'more-modes' | 'drafting' | 'season-sim' | 'results'
+  //   | 'playoffs' | 'trophy-room' | 'legends'
+  //   | 'series-preview' | 'series-sim' | 'series-result'
+  phase:          'mode-select',
+  // 'solo' | 'blind' | 'daily' | '1v1' | 'gm-ai' | 'dynasty-duel' | 'defense' | 'fans'
+  mode:           null,
+  currentPlayer:  1,             // 1 or 2 (dual-draft modes only)
   seriesResult:   null,
   selectedEra:    null,
   // 1v1 alternating draft state (set by startGame1v1)
@@ -226,7 +241,6 @@ export let S = {
 export function startGame(era = 'all') {
   const mode          = S.mode;
   const currentPlayer = S.currentPlayer;
-  const p1            = S.p1;
   const dailyChallenge = S.dailyChallenge ?? null; // daily mode context survives the reset
   const dailyDate      = S.dailyDate      ?? null;
   const dynastyOpponent = S.dynastyOpponent ?? null;
@@ -238,7 +252,6 @@ export function startGame(era = 'all') {
     eraPickerOpen:    false,
     mode,
     currentPlayer,
-    p1,
     seriesResult:     null,
     seriesRevealedCount: 0,
     selectedEra:      era,
