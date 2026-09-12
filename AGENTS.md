@@ -15,7 +15,7 @@ python3 -m http.server 8000
 Any static file server works (`npx serve`, etc.). There is no dev/prod distinction — the served files are the app.
 
 ### Lint / test / build
-There is **no lint tooling, no automated test suite, and no build step required to run** this repo. "Testing" means manually playing the game in a browser: draft a 5-player XI via the era wheel, pick a captain, then click **SIMULATE 14 MATCHES** and confirm a season-result screen appears.
+There is **no lint tooling, no automated test suite, and no build step required to run** this repo. "Testing" means manually playing the game in a browser: draft a 5-player XI via the era wheel, then click **SIMULATE 14 MATCHES** and confirm a season-result screen appears. There are eight modes (Classic/solo, Ball IQ/blind, Daily, 1v1, GM vs AI, Dynasty Duel, Bowling Only, Fans First) — a change touching the draft or sim should be checked against more than just Classic.
 
 One committed-generated stylesheet: `css/tailwind.css` is a static Tailwind
 build (config in `tailwind.config.js`). After adding/removing Tailwind classes

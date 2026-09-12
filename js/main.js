@@ -45,7 +45,7 @@ async function init() {
     if (!isReturningPlayer() && !hasKnownHashRoute()) {
       S.mode           = 'solo';
       S.currentPlayer  = 1;
-      S.p1             = null;
+
       startGame('all');
       S.coldOpen = true;           // set after startGame — it replaces S
       logAnalyticsEvent('cold_open_start', {});
