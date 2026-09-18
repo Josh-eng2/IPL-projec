@@ -127,9 +127,3 @@ export function cgSetItem(key, value) {
   if (usingCgData()) { window.CrazyGames.SDK.data.setItem(key, value); return; }
   localStorage.setItem(key, value);
 }
-
-/** Drop-in replacement for localStorage.removeItem. */
-export function cgRemoveItem(key) {
-  if (usingCgData()) { window.CrazyGames.SDK.data.removeItem(key); return; }
-  try { localStorage.removeItem(key); } catch (_) {}
-}
