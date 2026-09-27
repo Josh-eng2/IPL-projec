@@ -41,6 +41,50 @@ import { weekKeyUTC }                              from '../logic/dynastyDuel.js
 
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
+// ── Modal focus management ────────────────────────────────────────────────────
+// Every modal here is injected into <body> and torn out again on close. Without
+// this, closing one dropped focus back to <body>, so keyboard and screen-reader
+// users lost their place in the page and had to tab from the very top again.
+// Each opener records what was focused; each closer puts it back.
+const _focusReturn = new Map();
+
+function rememberFocus(id) {
+  const el = document.activeElement;
+  if (el && el !== document.body) _focusReturn.set(id, el);
+}
+
+function restoreFocus(id) {
+  const el = _focusReturn.get(id);
+  _focusReturn.delete(id);
+  // Only restore if the trigger is still in the document — a re-render can
+  // replace it, in which case forcing focus onto a detached node does nothing.
+  if (el && document.contains(el)) {
+    try { el.focus(); } catch (e) {}
+  }
+}
+
+/**
+ * Traps Tab inside a modal root and wires Escape to close it.
+ * Returns a teardown function that also restores focus to the opener.
+ */
+function trapFocus(root, id, onClose) {
+  const onKey = e => {
+    if (e.key === 'Escape') { onClose(); return; }
+    if (e.key !== 'Tab') return;
+    const f = [...root.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+      .filter(el => el.offsetParent !== null || el === document.activeElement);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  };
+  document.addEventListener('keydown', onKey);
+  return () => {
+    document.removeEventListener('keydown', onKey);
+    restoreFocus(id);
+  };
+}
+
 // One-time cleanup — the captain (coach) feature was removed, so its
 // remembered pick has nothing to configure anymore. Written pre-removal via
 // plain localStorage (not the CrazyGames data module), so removed the same way.
@@ -326,13 +370,14 @@ function renderLeaderboardModal() {
   return `
   <div id="lb-modal-backdrop" onclick="if(event.target===this)closeLeaderboardModal()"
     style="position:fixed;inset:0;background:var(--overlay);z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px">
-    <div style="background:var(--card);border:1.5px solid var(--border);border-radius:20px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;padding:24px;font-family:'Fira Sans',sans-serif;color:var(--fg);animation:scaleIn 0.2s ease-out;box-shadow:0 20px 60px var(--shadow)">
+    <div role="dialog" aria-modal="true" aria-labelledby="lb-modal-title"
+      style="background:var(--card);border:1.5px solid var(--border);border-radius:20px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;padding:24px;font-family:'Fira Sans',sans-serif;color:var(--fg);animation:scaleIn 0.2s ease-out;box-shadow:0 20px 60px var(--shadow)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
         <div>
           <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--primary);margin:0 0 4px">Personal Best</p>
-          <h2 style="font-size:22px;font-weight:900;margin:0;color:var(--fg)">Leaderboard</h2>
+          <h2 id="lb-modal-title" style="font-size:22px;font-weight:900;margin:0;color:var(--fg)">Leaderboard</h2>
         </div>
-        <button onclick="closeLeaderboardModal()"
+        <button onclick="closeLeaderboardModal()" aria-label="Close leaderboard"
           style="background:var(--card2);border:1px solid var(--border);color:var(--muted-fg);border-radius:999px;width:32px;height:32px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</button>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px">
@@ -345,29 +390,19 @@ function renderLeaderboardModal() {
 
 export function showLeaderboardModal() {
   closeLeaderboardModal();
+  rememberFocus('lb');
   const div = document.createElement('div');
   div.id = 'lb-modal-root';
   div.innerHTML = renderLeaderboardModal();
   document.body.appendChild(div);
-  const onKey = e => { if (e.key === 'Escape') closeLeaderboardModal(); };
-  document.addEventListener('keydown', onKey);
-  div._removeKey = () => document.removeEventListener('keydown', onKey);
-  const focusable = div.querySelectorAll('button, [tabindex]:not([tabindex="-1"])');
-  const first = focusable[0], last = focusable[focusable.length - 1];
-  div.addEventListener('keydown', e => {
-    if (e.key !== 'Tab' || !first) return;
-    if (e.shiftKey ? document.activeElement === first : document.activeElement === last) {
-      e.preventDefault();
-      (e.shiftKey ? last : first).focus();
-    }
-  });
-  first?.focus();
+  div._teardown = trapFocus(div, 'lb', closeLeaderboardModal);
+  div.querySelector('button')?.focus();
 }
 
 export function closeLeaderboardModal() {
   const el = document.getElementById('lb-modal-root');
   if (el) {
-    if (el._removeKey) el._removeKey();
+    if (el._teardown) el._teardown();
     el.remove();
   }
 }
@@ -512,14 +547,15 @@ function _globalLbTeamDetailHtml(entry) {
   return `
   <div id="global-lb-detail-backdrop" onclick="if(event.target===this)window.closeGlobalLbTeamDetail()"
     style="position:fixed;inset:0;background:var(--overlay);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px">
-    <div style="background:var(--card);border:1.5px solid var(--border);border-radius:20px;width:100%;max-width:420px;max-height:90vh;overflow-y:auto;padding:22px;font-family:Fira Sans,sans-serif;color:var(--fg);animation:scaleIn 0.2s ease-out;box-shadow:0 20px 60px var(--shadow)">
+    <div role="dialog" aria-modal="true" aria-labelledby="global-lb-detail-title"
+      style="background:var(--card);border:1.5px solid var(--border);border-radius:20px;width:100%;max-width:420px;max-height:90vh;overflow-y:auto;padding:22px;font-family:Fira Sans,sans-serif;color:var(--fg);animation:scaleIn 0.2s ease-out;box-shadow:0 20px 60px var(--shadow)">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px">
         <div style="min-width:0">
           <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--primary);margin:0 0 4px">Team Breakdown</p>
-          <h3 style="font-size:20px;font-weight:900;margin:0;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</h3>
+          <h3 id="global-lb-detail-title" style="font-size:20px;font-weight:900;margin:0;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</h3>
           <p style="font-size:14px;font-weight:800;color:var(--fg);margin:6px 0 0;font-family:Fira Sans,sans-serif">${wins}–${losses}${entry.champion ? ' · 🏆 Champ' : ''}</p>
         </div>
-        <button onclick="window.closeGlobalLbTeamDetail()"
+        <button onclick="window.closeGlobalLbTeamDetail()" aria-label="Close team breakdown"
           style="background:var(--card2);border:1px solid var(--border);color:var(--muted-fg);border-radius:999px;width:32px;height:32px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</button>
       </div>
 
@@ -547,21 +583,21 @@ function showGlobalLbTeamDetail(index) {
   const entry = _globalLbCache[index];
   if (!entry) return;
   closeGlobalLbTeamDetail();
+  rememberFocus('global-lb-detail');
   const div = document.createElement('div');
   div.id = 'global-lb-detail-root';
   div.innerHTML = _globalLbTeamDetailHtml(entry);
   document.body.appendChild(div);
-  const onKey = e => {
-    if (e.key === 'Escape') closeGlobalLbTeamDetail();
-  };
-  document.addEventListener('keydown', onKey);
-  div._removeKey = () => document.removeEventListener('keydown', onKey);
+  // Stacked above the global-leaderboard modal: its own trap takes priority
+  // while it is open, and closing returns focus to the row that opened it.
+  div._teardown = trapFocus(div, 'global-lb-detail', closeGlobalLbTeamDetail);
+  div.querySelector('button')?.focus();
 }
 
 function closeGlobalLbTeamDetail() {
   const el = document.getElementById('global-lb-detail-root');
   if (el) {
-    if (el._removeKey) el._removeKey();
+    if (el._teardown) el._teardown();
     el.remove();
   }
 }
@@ -645,16 +681,17 @@ function _globalModalShellHtml(activeTab) {
   <div id="global-lb-modal-backdrop" onclick="if(event.target===this)window.closeGlobalLeaderboardModal()"
     style="position:fixed;inset:0;background:var(--overlay);z-index:9998;display:flex;
            align-items:center;justify-content:center;padding:16px">
-    <div style="background:var(--card);border:1.5px solid var(--border);border-radius:20px;width:100%;
+    <div role="dialog" aria-modal="true" aria-labelledby="global-lb-title"
+         style="background:var(--card);border:1.5px solid var(--border);border-radius:20px;width:100%;
                 max-width:520px;max-height:90vh;overflow-y:auto;padding:24px;
                 font-family:Fira Sans,sans-serif;color:var(--fg);
                 animation:scaleIn 0.2s ease-out;box-shadow:0 20px 60px var(--shadow)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
         <div>
           <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--primary);margin:0 0 4px">Global Competition</p>
-          <h2 style="font-size:22px;font-weight:900;margin:0;color:var(--fg)">🌍 Global Leaderboard</h2>
+          <h2 id="global-lb-title" style="font-size:22px;font-weight:900;margin:0;color:var(--fg)">🌍 Global Leaderboard</h2>
         </div>
-        <button onclick="window.closeGlobalLeaderboardModal()"
+        <button onclick="window.closeGlobalLeaderboardModal()" aria-label="Close global leaderboard"
           style="background:var(--card2);border:1px solid var(--border);color:var(--muted-fg);border-radius:999px;
                  width:32px;height:32px;font-size:16px;cursor:pointer;display:flex;
                  align-items:center;justify-content:center;flex-shrink:0">✕</button>
@@ -704,28 +741,18 @@ window.switchGlobalLbTab = function (tab) {
 
 export function showGlobalLeaderboardModal(tab = 'alltime') {
   closeGlobalLeaderboardModal();
+  rememberFocus('global-lb');
   const div  = document.createElement('div');
   div.id     = 'global-lb-modal-root';
   div.innerHTML = _globalModalShellHtml(tab);
   document.body.appendChild(div);
-  const onKey = e => {
-    if (e.key === 'Escape') {
-      if (document.getElementById('global-lb-detail-root')) closeGlobalLbTeamDetail();
-      else closeGlobalLeaderboardModal();
-    }
-  };
-  document.addEventListener('keydown', onKey);
-  div._removeKey = () => document.removeEventListener('keydown', onKey);
-  const focusable = div.querySelectorAll('button, [tabindex]:not([tabindex="-1"])');
-  const first = focusable[0], last = focusable[focusable.length - 1];
-  div.addEventListener('keydown', e => {
-    if (e.key !== 'Tab' || !first) return;
-    if (e.shiftKey ? document.activeElement === first : document.activeElement === last) {
-      e.preventDefault();
-      (e.shiftKey ? last : first).focus();
-    }
+  // Escape closes the team-detail popup first if one is stacked on top,
+  // so a single Escape never skips a layer.
+  div._teardown = trapFocus(div, 'global-lb', () => {
+    if (document.getElementById('global-lb-detail-root')) closeGlobalLbTeamDetail();
+    else closeGlobalLeaderboardModal();
   });
-  first?.focus();
+  div.querySelector('button')?.focus();
   _loadGlobalLb(tab);
 }
 
@@ -733,7 +760,7 @@ export function closeGlobalLeaderboardModal() {
   closeGlobalLbTeamDetail();
   const el = document.getElementById('global-lb-modal-root');
   if (el) {
-    if (el._removeKey) el._removeKey();
+    if (el._teardown) el._teardown();
     el.remove();
   }
 }
@@ -991,17 +1018,18 @@ function _dailyModalShellHtml(dateLabel) {
   <div id="daily-lb-modal-backdrop" onclick="if(event.target===this)window.closeDailyLeaderboardModal()"
     style="position:fixed;inset:0;background:var(--overlay);z-index:9998;display:flex;
            align-items:center;justify-content:center;padding:16px">
-    <div style="background:var(--card);border:1.5px solid var(--border);border-radius:20px;width:100%;
+    <div role="dialog" aria-modal="true" aria-labelledby="daily-lb-title"
+         style="background:var(--card);border:1.5px solid var(--border);border-radius:20px;width:100%;
                 max-width:520px;max-height:90vh;overflow-y:auto;padding:24px;
                 font-family:Fira Sans,sans-serif;color:var(--fg);
                 animation:scaleIn 0.2s ease-out;box-shadow:0 20px 60px var(--shadow)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
         <div>
           <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--primary);margin:0 0 4px">${dateLabel}</p>
-          <h2 style="font-size:22px;font-weight:900;margin:0;color:var(--fg)">🗓️ Daily Challenge</h2>
+          <h2 id="daily-lb-title" style="font-size:22px;font-weight:900;margin:0;color:var(--fg)">🗓️ Daily Challenge</h2>
           <p style="font-size:12px;font-weight:700;color:var(--muted-fg);margin:6px 0 0">${ch.emoji} ${ch.title} — <span style="font-weight:500">${ch.desc}</span></p>
         </div>
-        <button onclick="window.closeDailyLeaderboardModal()"
+        <button onclick="window.closeDailyLeaderboardModal()" aria-label="Close daily leaderboard"
           style="background:var(--card2);border:1px solid var(--border);color:var(--muted-fg);border-radius:999px;
                  width:32px;height:32px;font-size:16px;cursor:pointer;display:flex;
                  align-items:center;justify-content:center;flex-shrink:0">✕</button>
@@ -1050,6 +1078,7 @@ window._retryDailyLb = () => _loadDailyLb(getUtcDateString());
 
 export function showDailyLeaderboardModal() {
   closeDailyLeaderboardModal();
+  rememberFocus('daily-lb');
   const today = getUtcDateString();
   const dateLabel = new Date(today + 'T00:00:00Z')
     .toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
@@ -1057,26 +1086,15 @@ export function showDailyLeaderboardModal() {
   div.id     = 'daily-lb-modal-root';
   div.innerHTML = _dailyModalShellHtml(dateLabel);
   document.body.appendChild(div);
-  const onKey = e => { if (e.key === 'Escape') closeDailyLeaderboardModal(); };
-  document.addEventListener('keydown', onKey);
-  div._removeKey = () => document.removeEventListener('keydown', onKey);
-  const focusable = div.querySelectorAll('button, [tabindex]:not([tabindex="-1"])');
-  const first = focusable[0], last = focusable[focusable.length - 1];
-  div.addEventListener('keydown', e => {
-    if (e.key !== 'Tab' || !first) return;
-    if (e.shiftKey ? document.activeElement === first : document.activeElement === last) {
-      e.preventDefault();
-      (e.shiftKey ? last : first).focus();
-    }
-  });
-  first?.focus();
+  div._teardown = trapFocus(div, 'daily-lb', closeDailyLeaderboardModal);
+  div.querySelector('button')?.focus();
   _loadDailyLb(today);
 }
 
 export function closeDailyLeaderboardModal() {
   const el = document.getElementById('daily-lb-modal-root');
   if (el) {
-    if (el._removeKey) el._removeKey();
+    if (el._teardown) el._teardown();
     el.remove();
   }
 }
@@ -1132,6 +1150,7 @@ function _dailyStatsBodyHtml() {
 
 export function showDailyStatsModal() {
   closeDailyStatsModal();
+  rememberFocus('daily-stats');
   const div = document.createElement('div');
   div.id = 'daily-stats-modal-root';
   div.innerHTML = `
@@ -1155,25 +1174,14 @@ export function showDailyStatsModal() {
     </div>
   </div>`;
   document.body.appendChild(div);
-  const onKey = e => { if (e.key === 'Escape') closeDailyStatsModal(); };
-  document.addEventListener('keydown', onKey);
-  div._removeKey = () => document.removeEventListener('keydown', onKey);
-  const focusable = div.querySelectorAll('button, [tabindex]:not([tabindex="-1"])');
-  const first = focusable[0], last = focusable[focusable.length - 1];
-  div.addEventListener('keydown', e => {
-    if (e.key !== 'Tab' || !first) return;
-    if (e.shiftKey ? document.activeElement === first : document.activeElement === last) {
-      e.preventDefault();
-      (e.shiftKey ? last : first).focus();
-    }
-  });
-  first?.focus();
+  div._teardown = trapFocus(div, 'daily-stats', closeDailyStatsModal);
+  div.querySelector('button')?.focus();
 }
 
 export function closeDailyStatsModal() {
   const el = document.getElementById('daily-stats-modal-root');
   if (el) {
-    if (el._removeKey) el._removeKey();
+    if (el._teardown) el._teardown();
     el.remove();
   }
 }
