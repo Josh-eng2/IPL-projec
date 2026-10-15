@@ -33,7 +33,9 @@ import { decadeFromBucketKey } from './era.js';
 // Cheapest player popularity in the DB — used to prove a budget pick can
 // still be completed with the remaining slots. Derived from the live DB
 // (memoized) so a data regeneration can't silently break the feasibility
-// math; 35 is the current floor and the fallback before DB load.
+// math. 40 is the current floor; the constant below is only the pre-DB-load
+// fallback and is deliberately conservative (never above the real minimum,
+// or the feasibility check would reject legal picks).
 let _minPopCache = null;
 function minPopularity() {
   if (_minPopCache != null) return _minPopCache;

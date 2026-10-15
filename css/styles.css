@@ -4,6 +4,17 @@
    ============================================================ */
 
 /* ── Theme variables ──────────────────────────────────────── */
+/* Text colours form a deliberate three-tier hierarchy in BOTH themes:
+      --fg        primary   (headings, records, player names)
+      --muted-fg  secondary (labels, descriptions, captions)
+      --muted     tertiary  (timestamps, seeds, unit suffixes)
+   Every tier is verified against the surfaces it actually sits on
+   (--card #fff / --card2 #f1f5f9 / --bg) at >= 4.5:1, WCAG AA for body text.
+   Previously --muted was #94a3b8, which measured 2.34:1 on --card2 and
+   2.56:1 on --card — a straight AA failure on real UI text (timestamps,
+   starter lists, bracket seeds) — and in dark mode all three tiers sat
+   within 1.2:1 of each other, so the hierarchy collapsed into one flat
+   grey and dark mode read as a different, worse design. */
 :root {
   --bg:          #f8fafc;
   --card:        #ffffff;
@@ -11,9 +22,9 @@
   --card3:       #f8fafc;
   --border:      #e2e8f0;
   --border-light:#f1f5f9;
-  --fg:          #0f172a;
-  --muted:       #94a3b8;
-  --muted-fg:    #64748b;
+  --fg:          #0f172a;  /* 17.1:1 on --bg  */
+  --muted:       #64748b;  /*  4.8:1 on --card, 4.3:1 on --card2 */
+  --muted-fg:    #4b5563;  /*  7.6:1 on --card */
   --primary:     #2563eb;
   --primary-fg:  #ffffff;
   --shadow:      rgba(0,0,0,0.06);
@@ -48,9 +59,9 @@
   --card3:       #1e293b;
   --border:      #475569;
   --border-light:#334155;
-  --fg:          #f1f5f9;
-  --muted:       #cbd5e1;
-  --muted-fg:    #e2e8f0;
+  --fg:          #f1f5f9;  /* 16.3:1 on --bg */
+  --muted:       #8d9bb1;  /*  5.2:1 on --card — tertiary */
+  --muted-fg:    #aab7c9;  /*  7.2:1 on --card — secondary */
   --primary:     #60a5fa;
   --primary-fg:  #ffffff;
   --shadow:      rgba(0,0,0,0.25);
@@ -158,21 +169,60 @@ html[data-page="game"] body {
   background: var(--card2) !important;
 }
 
-/* ── Positional fit borders (filled roster slots) ──────────── */
-.fit-primary {
-  border-color: #22c55e !important;
-  border-top:   3px solid #22c55e !important;
-  box-shadow: 0 0 0 2px rgba(34,197,94,0.22), 0 1px 3px rgba(0,0,0,0.06) !important;
+/* Empty-slot drop states. One --fit token per state drives border AND label,
+   and color-mix against the live theme surfaces means light/dark are handled
+   once here instead of via isDark() ternaries in the renderer. */
+.draft-roster-slot--drop-idle    { --fit: var(--muted); background: var(--card3); border-color: var(--border); }
+.draft-roster-slot--drop-primary { --fit: #16a34a; }
+.draft-roster-slot--drop-flex    { --fit: #d97706; }
+.draft-roster-slot--drop-oop     { --fit: #ea580c; }
+.draft-roster-slot--drop-neutral { --fit: var(--primary); }
+
+.draft-roster-slot--drop-primary,
+.draft-roster-slot--drop-flex,
+.draft-roster-slot--drop-oop,
+.draft-roster-slot--drop-neutral {
+  background: color-mix(in srgb, var(--fit) 8%, var(--card));
+  border-color: color-mix(in srgb, var(--fit) 45%, var(--border));
 }
-.fit-flex {
-  border-color: #f97316 !important;
-  border-top:   3px solid #f97316 !important;
-  box-shadow: 0 0 0 2px rgba(249,115,22,0.22), 0 1px 3px rgba(0,0,0,0.06) !important;
-}
-.fit-place {
-  border-color: #ef4444 !important;
-  border-top:   3px solid #ef4444 !important;
-  box-shadow: 0 0 0 2px rgba(239,68,68,0.22), 0 1px 3px rgba(0,0,0,0.06) !important;
+
+.draft-roster-slot--drop-idle > span { color: var(--muted); }
+.draft-roster-slot--drop-primary > span,
+.draft-roster-slot--drop-flex > span,
+.draft-roster-slot--drop-oop > span,
+.draft-roster-slot--drop-neutral > span { color: var(--fit); }
+
+/* Dark mode: the mid-weight fit hues lose contrast on a dark card, so lift
+   them. Keyed to the same tokens, so the rules below can't drift out of sync
+   with the light values above the way a duplicated palette would. */
+[data-theme="dark"] .draft-roster-slot--drop-primary,
+[data-theme="dark"] .fit-primary { --fit: #4ade80; }
+[data-theme="dark"] .draft-roster-slot--drop-flex,
+[data-theme="dark"] .fit-flex    { --fit: #fbbf24; }
+[data-theme="dark"] .draft-roster-slot--drop-oop,
+[data-theme="dark"] .fit-place   { --fit: #fb923c; }
+
+/* ── Positional fit borders (filled roster slots) ───────────────────────────
+   Single source of truth for the fit palette — renderRosterSlot() reads the
+   same three colours for its label text, so chip border and chip label can
+   no longer disagree.
+
+   These rules used to hardcode a different palette (#22c55e / #f97316 /
+   #ef4444) and win via !important, which quietly overrode the intent stated
+   in renderRosterSlot(): "never a harsh red for a perfectly playable slot".
+   An out-of-position pick is legal and often correct — it is just not the
+   player's natural slot — so it reads as warm amber, not an error state. */
+.draft-roster-slot.fit-primary { --fit: #16a34a; }
+.draft-roster-slot.fit-flex    { --fit: #d97706; }
+.draft-roster-slot.fit-place   { --fit: #ea580c; }
+
+.draft-roster-slot.fit-primary,
+.draft-roster-slot.fit-flex,
+.draft-roster-slot.fit-place {
+  border-color: color-mix(in srgb, var(--fit) 45%, var(--border));
+  border-top: 3px solid var(--fit);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--fit) 18%, transparent),
+              0 1px 3px var(--shadow);
 }
 
 /* ── Slot-machine spin animation ───────────────────────────── */
@@ -685,68 +735,50 @@ button.draft-roster-slot {
   gap: 0.35rem;
 }
 
-.playoff-bracket__stack--sf {
-  justify-content: center;
-  gap: 3.5rem;
-  padding: 1.25rem 0;
-}
-
-.playoff-bracket__stack--f {
-  justify-content: center;
-}
-
 .bracket-matchup-wrap {
   position: relative;
 }
 
-/* Horizontal connectors into next round */
-.playoff-bracket__col--qf .bracket-matchup-wrap::after,
-.playoff-bracket__col--sf .bracket-matchup-wrap::after {
+/* Connector lines between rounds.
+   These selectors previously targeted --qf / --sf / --f, the NBA original's
+   quarter/semi/final stages. renderPlayoffBracketTree() emits the real IPL
+   stage ids (qualifier1 / eliminator / qualifier2 / final), so every rule
+   below was dead and the bracket rendered as four disconnected columns.
+   Rebuilt against the actual IPL progression:
+     Qualifier 1 ─┬─────────────────────────────► Final   (winner)
+                  └─► Qualifier 2 ──────────────► Final   (loser gets a 2nd life)
+     Eliminator ────► Qualifier 2                                            */
+.playoff-bracket__col--qualifier1 .bracket-matchup-wrap::after,
+.playoff-bracket__col--eliminator .bracket-matchup-wrap::after,
+.playoff-bracket__col--qualifier2 .bracket-matchup-wrap::after {
   content: '';
   position: absolute;
   right: -0.5rem;
   top: 50%;
   width: 0.5rem;
   height: 2px;
-  background: #94a3b8;
+  background: var(--border);
   transform: translateY(-50%);
   z-index: 2;
 }
 
-/* Vertical connectors on semifinal side */
-.playoff-bracket__col--sf .bracket-matchup-wrap--sf0::before,
-.playoff-bracket__col--sf .bracket-matchup-wrap--sf1::before {
+/* Incoming stub on every round that has a predecessor. */
+.playoff-bracket__col--qualifier2 .bracket-matchup-wrap::before,
+.playoff-bracket__col--final .bracket-matchup-wrap::before {
   content: '';
   position: absolute;
   left: -0.5rem;
-  width: 2px;
-  background: #94a3b8;
+  top: 50%;
+  width: 0.5rem;
+  height: 2px;
+  background: var(--border);
+  transform: translateY(-50%);
   z-index: 1;
-}
-
-.playoff-bracket__col--sf .bracket-matchup-wrap--sf0::before {
-  top: -2.75rem;
-  height: calc(50% + 2.75rem);
-}
-
-.playoff-bracket__col--sf .bracket-matchup-wrap--sf1::before {
-  bottom: -2.75rem;
-  height: calc(50% + 2.75rem);
-}
-
-.playoff-bracket__col--f .bracket-matchup-wrap--f::before {
-  content: '';
-  position: absolute;
-  left: -0.5rem;
-  top: 25%;
-  bottom: 25%;
-  width: 2px;
-  background: #94a3b8;
 }
 
 .bracket-matchup {
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 10px;
   overflow: hidden;
   background: var(--card);
   box-shadow: 0 1px 2px var(--shadow2);
@@ -846,7 +878,7 @@ button.draft-roster-slot {
   margin-top: 0.25rem;
   padding: 0.75rem 0.5rem;
   border: 2px dashed var(--border);
-  border-radius: 8px;
+  border-radius: 12px;
   background: var(--card3);
 }
 
@@ -1311,7 +1343,7 @@ button.draft-roster-slot {
   min-height: 0;
   width: 8rem;
   max-width: 70%;
-  border-radius: 999px;
+  border-radius: 9999px;
   background: var(--border);
   overflow: hidden;
   display: flex;
@@ -1320,7 +1352,7 @@ button.draft-roster-slot {
 
 .draft-pop-bar-vertical__fill {
   width: 100%;
-  border-radius: 999px;
+  border-radius: 9999px;
   transition: height 0.2s ease-out;
 }
 
@@ -1722,15 +1754,6 @@ button.draft-roster-slot {
   color: var(--muted-fg) !important;
 }
 
-/* Connector lines in bracket */
-[data-theme="dark"] .playoff-bracket__col--qf .bracket-matchup-wrap::after,
-[data-theme="dark"] .playoff-bracket__col--sf .bracket-matchup-wrap::after,
-[data-theme="dark"] .playoff-bracket__col--sf .bracket-matchup-wrap--sf0::before,
-[data-theme="dark"] .playoff-bracket__col--sf .bracket-matchup-wrap--sf1::before,
-[data-theme="dark"] .playoff-bracket__col--f .bracket-matchup-wrap--f::before {
-  background: var(--muted);
-}
-
 /* ── Results screen — responsive Submit card placement ───────── */
 .results-layout {
   display: flex;
@@ -1889,6 +1912,6 @@ button.draft-roster-slot {
 }
 .cp-dates li {
   font-size: 13px; color: var(--muted-fg); margin: 0;
-  border: 1px solid var(--border); border-radius: 999px;
+  border: 1px solid var(--border); border-radius: 9999px;
   padding: 3px 11px; background: var(--card);
 }

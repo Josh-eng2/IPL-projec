@@ -6,7 +6,6 @@
  *   $app            — the #app DOM node (shared with events.js)
  *   archetypeBadge  — archetype pill HTML helper
  *   fmtDecadeShort  — "2016-19" → "'16-19"
- *   fmtPlayerLine   — "Kohli (RCB '16-19)"
  *   showToast       — ephemeral bottom toast notification
  */
 
@@ -146,12 +145,6 @@ export function fmtDecadeShort(decade) {
   return m ? `'${m[1].slice(2)}-${m[2]}` : decade;
 }
 
-export function fmtPlayerLine(p) {
-  if (!p) return '—';
-  const era = [p.team, p.decade ? fmtDecadeShort(p.decade) : ''].filter(Boolean).join(' ');
-  return era ? `${p.name} (${era})` : p.name;
-}
-
 // ── Team rating (0–100 overall) display helper ────────────────────────────────
 /** 2K-style tier color for a 0–100 overall. Cutoffs 97/92/85 are the old
  * rating-scale 90/82/74 tiers' percentile equivalents on the `overall`
@@ -259,7 +252,7 @@ function renderEraPickerSheet() {
   function eraRow(eraId, label, subtitle, action) {
     const selected = active === eraId;
     return `
-    <button data-action="${action}"
+    <button data-action="${action}" type="button" aria-pressed="${selected}"
       class="era-picker-row${selected ? ' era-picker-row--active' : ''}">
       <span class="era-picker-row__label">${label}</span>
       ${subtitle ? `<span class="era-picker-row__sub">${subtitle}</span>` : ''}
@@ -267,10 +260,14 @@ function renderEraPickerSheet() {
     </button>`;
   }
 
+  // Deliberately NOT role="listbox": the rows are real <button>s, and
+  // <button> is not a valid child of a listbox (which expects role="option").
+  // A labelled group keeps the semantics honest and the buttons natively
+  // operable by keyboard and screen readers.
   return `
-  <div class="era-picker-panel" role="listbox" aria-label="Draft era">
+  <div class="era-picker-panel" role="group" aria-label="Draft era">
     <div class="era-picker-panel__head">
-      <p class="era-picker-panel__title">Draft era</p>
+      <p class="era-picker-panel__title" id="era-picker-title">Draft era</p>
       <p class="era-picker-panel__hint">Locks on first spin</p>
     </div>
     <div class="era-picker-panel__list">
@@ -588,8 +585,11 @@ function renderModeSelect() {
 /** Challenges entry — a button that opens the full challenge-select screen. */
 function renderMoreModesButton() {
   return `
+  <!-- bg-card, not bg-white/80: the dark-mode override in styles.css matches
+       the plain .bg-white selector exactly, so the opacity variant slipped
+       past it and this button rendered as a near-white slab on dark. -->
   <button data-action="open-more-modes"
-    class="w-full mb-3 rounded-xl border border-border bg-white/80 px-4 py-3 flex items-center justify-between gap-3 cursor-pointer card-shadow hover:border-primary hover:bg-card2 transition-all">
+    class="w-full mb-3 rounded-xl border border-border bg-card px-4 py-3 flex items-center justify-between gap-3 cursor-pointer card-shadow hover:border-primary hover:bg-card2 transition-all">
     <span class="flex items-center gap-2" style="pointer-events:none">
       <span class="text-xl">🎮</span>
       <span class="flex flex-col text-left">
@@ -1307,25 +1307,19 @@ function renderRosterSlot(pos, canPlace) {
   const label = pos;
 
   if (p) {
+    // Border, ring and label colour all come from the single --fit token the
+    // .fit-* classes define in styles.css — see the note there. Nothing about
+    // the chip's colour is set inline any more, so the two can't drift apart.
     const fitType  = p.pos === pos ? 'primary' : (p.secondaryPos || []).includes(pos) ? 'flex' : 'place';
-    const fitClass  = 'fit-' + fitType;
-    // Match empty-slot fit language: primary green, flex amber, out-of-position
-    // warm amber — never a harsh red for a perfectly playable slot.
-    const fitColors = { primary: '#16a34a', flex: '#d97706', place: '#c2410c' };
-    const fitBorders = { primary: '#86efac', flex: '#fde68a', place: '#fdba74' };
-    const fitTops = { primary: '#16a34a', flex: '#d97706', place: '#ea580c' };
-    const borderColor = fitBorders[fitType];
-    const borderTop   = `3px solid ${fitTops[fitType]}`;
-    const labelColor  = fitColors[fitType];
+    const fitLabel = { primary: 'natural slot', flex: 'flex slot', place: 'out of position' }[fitType];
     const ppgLine = S.mode === 'blind'
       ? ''
-      : `<span class="text-[10px] text-muted-fg leading-none">${fmtPG(p.runs)}r</span>`;
+      : `<span class="text-[10px] text-muted leading-none">${fmtPG(p.runs)}r</span>`;
 
     return `
-    <div class="rounded-xl border bg-white p-2 flex flex-col items-center gap-0.5 text-center overflow-hidden card-shadow locked draft-roster-slot ${fitClass}"
-      style="border-color:${borderColor};border-top:${borderTop}"
-      title="${p.name} · pick locked">
-      <span class="text-[10px] font-black uppercase leading-none" style="color:${labelColor}">${label}</span>
+    <div class="rounded-xl border bg-white p-2 flex flex-col items-center gap-0.5 text-center overflow-hidden locked draft-roster-slot fit-${fitType}"
+      title="${p.name} · ${pos} · ${fitLabel} · pick locked">
+      <span class="text-[10px] font-black uppercase leading-none" style="color:var(--fit)">${label}</span>
       <span class="text-[11px] font-bold text-foreground leading-tight w-full text-center truncate px-0.5">${p.name.split(' ').pop()}</span>
       ${ppgLine}
     </div>`;
@@ -1333,7 +1327,14 @@ function renderRosterSlot(pos, canPlace) {
 
   // Empty slot — droppable when placing a draft pick.
   // Ball IQ hides the Primary/Flex hints: highlighting the selected player's
-  // natural slots would leak the position the mode asks you to know.
+  // natural slots would leak the position the mode asks you to know. It gets
+  // a neutral "Place" state instead — previously it fell through to the same
+  // red styling used for "no fit", so in Ball IQ every empty slot lit up in an
+  // error colour for what is simply the normal way to draft in that mode.
+  //
+  // Colours live in styles.css keyed off these state classes (see
+  // .draft-roster-slot--drop-*), so light/dark are defined in one place rather
+  // than through a chain of isDark() ternaries that can silently go stale.
   const canDrop      = canPlace;
   const sp           = S.selectedPlayer;
   const showFit      = S.mode !== 'blind';
@@ -1341,22 +1342,22 @@ function renderRosterSlot(pos, canPlace) {
   const flexMatch    = showFit && canDrop && sp && !primaryMatch &&
     (sp.secondaryPos || []).includes(pos);
   // Out-of-position is NOT a bad fit — a player can still start anywhere,
-  // it's just not their natural slot. Amber/neutral instead of red keeps the
-  // roster chip from reading as a mistake when it isn't one.
+  // it's just not their natural slot. Warm amber, never red.
   const oopMatch     = showFit && canDrop && sp && !primaryMatch && !flexMatch;
 
-  const slotBg     = !canDrop ? 'var(--card3)' : (isDark() ? 'rgba(234,179,8,0.08)' : '#fffbeb');
-  const slotBorder = !canDrop ? 'var(--border)' : (primaryMatch ? (isDark() ? '#4ade80' : '#86efac') : flexMatch ? (isDark() ? '#fbbf24' : '#fde68a') : oopMatch ? (isDark() ? '#fdba74' : '#fed7aa') : (isDark() ? '#f87171' : '#fca5a5'));
-  const slotColor  = !canDrop ? 'var(--muted)' : (primaryMatch ? (isDark() ? '#4ade80' : '#16a34a') : flexMatch ? (isDark() ? '#fbbf24' : '#d97706') : oopMatch ? (isDark() ? '#fb923c' : '#c2410c') : (isDark() ? '#f87171' : '#dc2626'));
-  const slotText   = !canDrop ? 'Empty' : primaryMatch ? 'Primary' : flexMatch ? 'Flex' : oopMatch ? 'Versatile' : 'Place';
+  const dropState = !canDrop ? 'idle'
+    : primaryMatch ? 'primary'
+    : flexMatch    ? 'flex'
+    : oopMatch     ? 'oop'
+    : 'neutral';
+  const slotText = { idle: 'Empty', primary: 'Primary', flex: 'Flex', oop: 'Versatile', neutral: 'Place' }[dropState];
 
   return `
   <button type="button" ${canDrop ? `data-action="place-${pos}"` : 'disabled'}
-    class="rounded-xl border-2 border-dashed p-2 flex flex-col items-center gap-1 text-center transition-all draft-roster-slot ${canDrop ? 'slot-empty droppable cursor-pointer' : 'opacity-90'}"
-    style="background:${slotBg};border-color:${slotBorder}"
-    aria-label="${canDrop ? `Place ${sp?.name || 'player'} at ${label}` : `${label} empty`}">
-    <span class="text-[10px] font-black uppercase" style="color:${slotColor}">${label}</span>
-    <span class="text-xs" style="color:${slotColor}">${slotText}</span>
+    class="rounded-xl border-2 border-dashed p-2 flex flex-col items-center gap-1 text-center transition-all draft-roster-slot draft-roster-slot--drop-${dropState} ${canDrop ? 'slot-empty droppable cursor-pointer' : 'opacity-90'}"
+    aria-label="${canDrop ? `Place ${sp?.name || 'player'} at ${label} — ${slotText}` : `${label} slot empty`}">
+    <span class="text-[10px] font-black uppercase">${label}</span>
+    <span class="text-xs">${slotText}</span>
   </button>`;
 }
 
@@ -1792,11 +1793,14 @@ function renderResults() {
   const winsColor = isPerfect || isHistoric ? (isDark() ? '#fbbf24' : '#d97706') : isElite ? (isDark() ? '#4ade80' : '#16a34a') : isPlayoff ? (isDark() ? '#60a5fa' : '#2563eb') : (isDark() ? '#f87171' : '#dc2626');
 
   // ── Team rating (0–100 overall) display helpers ───────────────────────────
+  // "Elo" was jargon that appears nowhere else in the game and was never
+  // explained; these deltas are simply how much star quality and fan hype
+  // moved the team's win odds, so say that.
   const teamOvr     = Math.round(r.avgRating ?? 0);
   const ratingDelta = r.ratingEloDelta ?? 0;
   const ratingPct   = ratingDelta / (r.baseStrength || 1) * 100;
   const ratingImpactLabel = Math.abs(ratingPct) >= 0.1
-    ? ` · ${ratingPct >= 0 ? '+' : ''}${ratingPct.toFixed(1)}% Elo`
+    ? ` · ${ratingPct >= 0 ? '+' : ''}${ratingPct.toFixed(1)}% win odds`
     : '';
 
   // ── Per-player season stats (this simulated run) ──────────────────────────
@@ -1847,7 +1851,7 @@ function renderResults() {
     const lbl    = pos ? 'High Fans' : 'Low Fans';
     return `<span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border"
       style="background:${bg};border-color:${border};color:${color}">
-      ${pos ? '📈' : '📉'} ${sign}${pctImp}% Elo · ${lbl}
+      ${pos ? '📈' : '📉'} ${sign}${pctImp}% win odds · ${lbl}
     </span>`;
   })();
 
@@ -1920,7 +1924,10 @@ function renderResults() {
           </div>
           <span class="inline-block text-sm font-bold px-4 py-1.5 rounded-full mb-2" style="background:${labelBg};color:${labelColor}">${emoji} ${label}</span>
           ${modeBadge}
-          <p class="text-xs text-muted-fg mb-2">Projected Win% ${r.winPct}% &nbsp;·&nbsp; Team OVR ${teamOvr} &nbsp;·&nbsp; Strength Index ${r.strength}</p>
+          <!-- Team OVR lives in the badge row below; repeating it here (next to
+               a raw "Strength Index" number that means nothing to a player)
+               was duplicate weight competing with the badges for attention. -->
+          <p class="text-xs text-muted mb-2">This XI was projected to win ${r.winPct}% of its matches</p>
           <div class="flex items-center justify-center gap-2 flex-wrap">
             <span class="inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-1 rounded-full border"
               style="background:${ovrColor(teamOvr)}12;border-color:${ovrColor(teamOvr)}40;color:${ovrColor(teamOvr)}">
@@ -2010,12 +2017,12 @@ function renderResults() {
               <div class="h-full rounded-full stat-bar-fill" style="width:${popBarPct}%;background:${popBarCol}"></div>
             </div>
           </div>
-          <!-- Elo impact row -->
+          <!-- Fan-hype impact on win odds -->
           <div class="flex gap-3 flex-wrap">
             <div class="flex-1 rounded-xl border px-3 py-2.5 text-center"
               style="background:${popDelta >= 0 ? 'var(--surface-green)' : 'var(--surface-red)'};border-color:${popDelta >= 0 ? (isDark() ? 'rgba(74,222,128,0.35)' : '#bbf7d0') : (isDark() ? 'rgba(248,113,113,0.35)' : '#fecaca')}">
               <p class="text-[10px] font-bold uppercase tracking-wider mb-1" style="color:${popDelta >= 0 ? (isDark() ? '#4ade80' : '#15803d') : (isDark() ? '#f87171' : '#dc2626')}">${popDelta >= 0 ? '📈 Hype Boost' : '📉 Hype Penalty'}</p>
-              <p class="text-xl font-black" style="color:${popDelta >= 0 ? (isDark() ? '#4ade80' : '#15803d') : (isDark() ? '#f87171' : '#dc2626')}">${popDelta >= 0 ? '+' : ''}${(popDelta / (r.baseStrength || 1) * 100).toFixed(1)}% Elo</p>
+              <p class="text-xl font-black" style="color:${popDelta >= 0 ? (isDark() ? '#4ade80' : '#15803d') : (isDark() ? '#f87171' : '#dc2626')}">${popDelta >= 0 ? '+' : ''}${(popDelta / (r.baseStrength || 1) * 100).toFixed(1)}% win odds</p>
             </div>
           </div>
           <!-- Player popularity breakdown -->
@@ -2039,7 +2046,7 @@ function renderResults() {
         <div class="rounded-2xl border border-border bg-white p-4 card-shadow">
           <p class="text-xs font-bold uppercase tracking-widest text-muted-fg mb-4">Team Statistics</p>
           <div class="flex flex-col gap-3">
-            ${(() => { const t = r.simTotals || r.totals; return `
+            ${(() => { const t = r.simTotals; return `
             ${statBar('runs', 'Runs Combined',     t.runs)}
             ${statBar('sr',   'Strike Rate Combined', t.sr)}
             ${statBar('wkts', 'Wickets Combined',   t.wkts)}
@@ -2221,7 +2228,7 @@ function renderPlayoffBracketTree(po) {
               topSeed:    (row.stage === 'qualifier1' || row.stage === 'eliminator') ? seedFor(row.teamA) : null,
               bottomSeed: (row.stage === 'qualifier1' || row.stage === 'eliminator') ? seedFor(row.teamB) : null,
               topScore: row.scoreA, bottomScore: row.scoreB,
-              topWon: row.complete ? (row.winner === row.teamA) : (row.live ? null : null),
+              topWon: row.complete ? (row.winner === row.teamA) : null,
               live: row.live,
             })}
           </div>
@@ -2601,7 +2608,7 @@ function renderSeriesResult() {
               ${ratingBadge(p1s.avgRating)}
             </div>
             <p class="text-[10px] font-bold uppercase tracking-wider text-muted-fg/60 mb-1">Starting 5</p>
-            ${rosterMini(S.p1Roster || S.p1?.roster || {}, ['OPEN','MID','WK','PACE','SPIN'])}
+            ${rosterMini(S.p1Roster || {}, POSITIONS)}
           </div>
           <div class="rounded-2xl border p-4 card-shadow" style="border-color:#fde68a;background:var(--surface-cream)">
             <div class="flex items-center justify-between mb-3">
@@ -2611,7 +2618,7 @@ function renderSeriesResult() {
             <p class="text-[10px] font-bold uppercase tracking-wider text-muted-fg/60 mb-1">Starting 5</p>
             ${S.mode === 'dynasty-duel'
               ? `<p class="text-xs text-muted-fg py-2">Legendary ${labels.p2} — strength ${p2s.strength.toFixed(2)}</p>`
-              : rosterMini(S.p2Roster || S.roster, ['OPEN','MID','WK','PACE','SPIN'])}
+              : rosterMini(S.p2Roster || S.roster, POSITIONS)}
           </div>
         </div>
 
@@ -2895,12 +2902,25 @@ const HASH_BY_PHASE = {
   'series-result':  '#/series',
 };
 
+// Hashes that main.js/events.js will actually route on after first paint.
+// Mirrors HASH_ROUTE_MAP in js/ui/events.js.
+const INBOUND_ROUTES = new Set([
+  'daily', 'classic', 'solo', 'blind', 'balliq', '1v1', 'challenges',
+  'trophies', 'legends', 'defense', 'fans', 'dynasty', 'gm-ai',
+]);
+
 function syncHashRoute() {
   // Don't clobber an inbound deep link while sitting on the menu — main.js
   // dispatches hashchange after first paint to honor #/daily etc.
+  //
+  // Only a hash that is genuinely routable counts as "inbound". The old check
+  // bailed on ANY non-empty hash, so once a session had visited e.g. #/draft,
+  // returning to the menu left the URL stuck on #/draft forever — the address
+  // bar disagreed with the screen, and reloading or sharing that link dropped
+  // you on the menu with a hash nothing routes on.
   if (S.phase === 'mode-select') {
-    const inbound = (location.hash || '').replace(/^#\/?/, '');
-    if (inbound && inbound !== '/') return;
+    const inbound = (location.hash || '').replace(/^#\/?/, '').toLowerCase();
+    if (inbound && INBOUND_ROUTES.has(inbound)) return;
   }
   const next = HASH_BY_PHASE[S.phase] || '#/';
   if (location.hash !== next) {
