@@ -6,18 +6,12 @@
  * reflect a much faster league, not necessarily more dominance.
  *
  * IPL cricket has no equivalent: every match, in every era from 2008 to
- * today, is the same 20-over format. There's no "pace" to normalize away,
- * so eraFactor() is a flat 1.0 across all eras — this module exists purely
- * so simulation.js/challenge.js can keep calling the same functions without
- * caring whether normalization is active.
+ * today, is the same 20-over format. There's no "pace" to normalize away, so
+ * these are all flat pass-throughs. The module still exists as the single
+ * seam where era normalization WOULD live, so simulation.js/challenge.js can
+ * keep calling one set of accessors without caring whether it's active — if
+ * IPL ever splits into formats that need rescaling, only this file changes.
  */
-
-const ERA_FACTOR = 1;
-
-/** Always 1 — IPL's T20 format never changes pace across eras. */
-export function eraFactor(_era) {
-  return ERA_FACTOR;
-}
 
 /** A single stat (runs/sr/wkts/econ/field), unscaled (pass-through). */
 export function eraAdjustedStat(player, key) {
